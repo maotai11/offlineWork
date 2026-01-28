@@ -1695,3 +1695,177 @@ async function exportCalendarPDF() {
 if (typeof exportPDF !== 'undefined') {
     window.exportPDF = exportCalendarPDF;
 }
+
+
+// ==================== 標籤系統 ====================
+/**
+ * 從所有項目中提取所有唯一標籤
+ */
+function getAllTags() {
+    const tags = new Set();
+
+    // 工作紀錄標籤
+    const workLogs = JSON.parse(localStorage.getItem('workRecords') || '[]');
+    workLogs.forEach(log => {
+        if (log.tags && Array.isArray(log.tags)) {
+            log.tags.forEach(tag => tags.add(tag));
+        }
+    });
+
+    // 日程標籤
+    const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+    schedules.forEach(item => {
+        if (item.tags && Array.isArray(item.tags)) {
+            item.tags.forEach(tag => tags.add(tag));
+        }
+    });
+
+    // 筆記標籤
+    const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+    notes.forEach(note => {
+        if (note.tags && Array.isArray(note.tags)) {
+            note.tags.forEach(tag => tags.add(tag));
+        }
+    });
+
+    return Array.from(tags).sort();
+}
+
+/**
+ * 渲染標籤輸入介面
+ * @param {string} containerId - 容器 ID
+ * @param {Array} currentTags - 目前已選標籤
+ * @param {Function} onUpdate - 標籤更新回調
+ */
+function renderTagInput(containerId, currentTags = [], onUpdate) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="tag-input-container">
+            <div class="tag-input-wrapper">
+                <input type="text" class="tag-input" placeholder="輸入標籤（按 Enter 新增）" />
+                <button type="button" class="tag-add-btn">新增</button>
+            </div>
+            <div class="tags-display"></div>
+        </div>
+    `;
+
+    const input = container.querySelector('.tag-input');
+    const addBtn = container.querySelector('.tag-add-btn');
+    const display = container.querySelector('.tags-display');
+
+    // 渲染已有標籤
+    function render() {
+        display.innerHTML = currentTags.map((tag, index) => `
+            <span class="tag">
+                ${sanitizeHTML(tag)}
+                <span class="tag-remove" data-index="${index}">×</span>
+            </span>
+        `).join('');
+
+        // 綁定移除事件
+        display.querySelectorAll('.tag-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const idx = parseInt(btn.dataset.index);
+                currentTags.splice(idx, 1);
+                render();
+                if (onUpdate) onUpdate(currentTags);
+            });
+        });
+    }
+
+    // 新增標籤
+    function addTag() {
+        const tag = input.value.trim();
+        if (tag && !currentTags.includes(tag)) {
+            currentTags.push(tag);
+            input.value = '';
+            render();
+            if (onUpdate) onUpdate(currentTags);
+        }
+    }
+
+    addBtn.addEventListener('click', addTag);
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTag();
+        }
+    });
+
+    render();
+}
+
+/**
+ * 渲染標籤篩選器
+ * @param {string} containerId - 容器 ID
+ * @param {Function} onFilter - 篩選回調函數
+ */
+function renderTagFilter(containerId, onFilter) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const allTags = getAllTags();
+    let activeTags = [];
+
+    function render() {
+        if (allTags.length === 0) {
+            container.innerHTML = '<p style="color: #999; font-size: 0.9rem;">尚無標籤</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="tag-filter-container">
+                <div class="tag-filter-title">📌 標籤篩選（點擊篩選）</div>
+                <div class="tag-filter-list">
+                    ${allTags.map(tag => `
+                        <span class="tag-filter ${activeTags.includes(tag) ? 'active' : ''}" data-tag="${sanitizeHTML(tag)}">
+                            ${sanitizeHTML(tag)}
+                        </span>
+                    `).join('')}
+                    ${activeTags.length > 0 ? '<span class="tag-filter" data-tag="__clear__">✕ 清除篩選</span>' : ''}
+                </div>
+            </div>
+        `;
+
+        // 綁定點擊事件
+        container.querySelectorAll('.tag-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tag = btn.dataset.tag;
+
+                if (tag === '__clear__') {
+                    activeTags = [];
+                } else {
+                    if (activeTags.includes(tag)) {
+                        activeTags = activeTags.filter(t => t !== tag);
+                    } else {
+                        activeTags.push(tag);
+                    }
+                }
+
+                render();
+                if (onFilter) onFilter(activeTags);
+            });
+        });
+    }
+
+    render();
+}
+
+/**
+ * 根據標籤篩選項目
+ * @param {Array} items - 項目陣列
+ * @param {Array} filterTags - 篩選標籤
+ * @returns {Array} - 篩選後的項目
+ */
+function filterByTags(items, filterTags) {
+    if (filterTags.length === 0) return items;
+
+    return items.filter(item => {
+        if (!item.tags || !Array.isArray(item.tags)) return false;
+        // 至少符合一個標籤即可
+        return filterTags.some(tag => item.tags.includes(tag));
+    });
+}
+
