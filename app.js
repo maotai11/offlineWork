@@ -2260,3 +2260,265 @@ document.addEventListener('DOMContentLoaded', function() {
 console.log('⌨️ 快捷鍵已啟用！');
 console.log('Ctrl+F - 搜尋 | Ctrl+N - 新增 | Ctrl+S - 儲存 | Ctrl+K - 深色模式');
 
+
+// ==================== 匯出功能 ====================
+/**
+ * 匯出資料為指定格式
+ * @param {string} format - 'json', 'csv', 或 'markdown'
+ */
+function exportData(format) {
+    const data = {
+        projects: state.projects,
+        tasks: state.tasks,
+        goals: state.goals,
+        tags: state.tags,
+        exportDate: new Date().toISOString()
+    };
+
+    let content, filename, mimeType;
+
+    switch (format) {
+        case 'json':
+            content = JSON.stringify(data, null, 2);
+            filename = `offline-work-backup-${getDateString()}.json`;
+            mimeType = 'application/json';
+            break;
+
+        case 'csv':
+            content = generateCSV(data);
+            filename = `offline-work-export-${getDateString()}.csv`;
+            mimeType = 'text/csv';
+            break;
+
+        case 'markdown':
+            content = generateMarkdown(data);
+            filename = `offline-work-export-${getDateString()}.md`;
+            mimeType = 'text/markdown';
+            break;
+
+        default:
+            console.error('Unknown export format:', format);
+            return;
+    }
+
+    // 下載檔案
+    downloadFile(content, filename, mimeType);
+
+    // 顯示成功訊息
+    showNotification(`✅ 已匯出為 ${format.toUpperCase()} 格式`, 'success');
+}
+
+/**
+ * 生成 CSV 格式
+ */
+function generateCSV(data) {
+    let csv = '';
+
+    // Projects
+    csv += '=== PROJECTS ===\n';
+    csv += 'Name,Description,Status,Priority,Tags,Created,Updated\n';
+    data.projects.forEach(p => {
+        csv += `"${escapeCsv(p.name)}","${escapeCsv(p.description)}","${p.status}","${p.priority}","${p.tags.join('; ')}","${p.createdAt}","${p.updatedAt}"\n`;
+    });
+
+    // Tasks
+    csv += '\n=== TASKS ===\n';
+    csv += 'Title,Description,Status,Priority,Due Date,Tags,Created,Updated\n';
+    data.tasks.forEach(t => {
+        csv += `"${escapeCsv(t.title)}","${escapeCsv(t.description)}","${t.status}","${t.priority}","${t.dueDate || ''}","${t.tags.join('; ')}","${t.createdAt}","${t.updatedAt}"\n`;
+    });
+
+    // Goals
+    csv += '\n=== GOALS ===\n';
+    csv += 'Title,Description,Category,Status,Target Date,Progress,Tags,Created,Updated\n';
+    data.goals.forEach(g => {
+        csv += `"${escapeCsv(g.title)}","${escapeCsv(g.description)}","${g.category}","${g.status}","${g.targetDate || ''}","${g.progress}%","${g.tags.join('; ')}","${g.createdAt}","${g.updatedAt}"\n`;
+    });
+
+    return csv;
+}
+
+/**
+ * 生成 Markdown 格式
+ */
+function generateMarkdown(data) {
+    let md = '# Offline Work Export\n\n';
+    md += `**Export Date:** ${new Date(data.exportDate).toLocaleString()}\n\n`;
+    md += `**Statistics:**\n`;
+    md += `- Projects: ${data.projects.length}\n`;
+    md += `- Tasks: ${data.tasks.length}\n`;
+    md += `- Goals: ${data.goals.length}\n`;
+    md += `- Tags: ${data.tags.length}\n\n`;
+
+    // Projects
+    md += '## 📁 Projects\n\n';
+    if (data.projects.length === 0) {
+        md += '*No projects*\n\n';
+    } else {
+        data.projects.forEach(p => {
+            md += `### ${p.name}\n\n`;
+            md += `**Description:** ${p.description}\n\n`;
+            md += `**Status:** ${getStatusEmoji(p.status)} ${p.status}\n\n`;
+            md += `**Priority:** ${getPriorityEmoji(p.priority)} ${p.priority}\n\n`;
+            if (p.tags.length > 0) {
+                md += `**Tags:** ${p.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+            }
+            md += `**Created:** ${new Date(p.createdAt).toLocaleString()}\n\n`;
+            md += '---\n\n';
+        });
+    }
+
+    // Tasks
+    md += '## ✅ Tasks\n\n';
+    if (data.tasks.length === 0) {
+        md += '*No tasks*\n\n';
+    } else {
+        data.tasks.forEach(t => {
+            md += `### ${t.title}\n\n`;
+            md += `**Description:** ${t.description}\n\n`;
+            md += `**Status:** ${getStatusEmoji(t.status)} ${t.status}\n\n`;
+            md += `**Priority:** ${getPriorityEmoji(t.priority)} ${t.priority}\n\n`;
+            if (t.dueDate) {
+                md += `**Due Date:** ${new Date(t.dueDate).toLocaleDateString()}\n\n`;
+            }
+            if (t.tags.length > 0) {
+                md += `**Tags:** ${t.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+            }
+            md += `**Created:** ${new Date(t.createdAt).toLocaleString()}\n\n`;
+            md += '---\n\n';
+        });
+    }
+
+    // Goals
+    md += '## 🎯 Goals\n\n';
+    if (data.goals.length === 0) {
+        md += '*No goals*\n\n';
+    } else {
+        data.goals.forEach(g => {
+            md += `### ${g.title}\n\n`;
+            md += `**Description:** ${g.description}\n\n`;
+            md += `**Category:** ${g.category}\n\n`;
+            md += `**Status:** ${getStatusEmoji(g.status)} ${g.status}\n\n`;
+            md += `**Progress:** ${g.progress}%\n\n`;
+            if (g.targetDate) {
+                md += `**Target Date:** ${new Date(g.targetDate).toLocaleDateString()}\n\n`;
+            }
+            if (g.tags.length > 0) {
+                md += `**Tags:** ${g.tags.map(t => `\`${t}\``).join(', ')}\n\n`;
+            }
+            md += `**Created:** ${new Date(g.createdAt).toLocaleString()}\n\n`;
+            md += '---\n\n';
+        });
+    }
+
+    // Tags
+    md += '## 🏷️ Tags\n\n';
+    if (data.tags.length === 0) {
+        md += '*No tags*\n\n';
+    } else {
+        md += data.tags.map(t => `- \`${t}\``).join('\n');
+        md += '\n';
+    }
+
+    return md;
+}
+
+/**
+ * 工具函數：取得狀態 Emoji
+ */
+function getStatusEmoji(status) {
+    const map = {
+        'todo': '⏳',
+        'in-progress': '🔄',
+        'completed': '✅',
+        'on-hold': '⏸️',
+        'cancelled': '❌'
+    };
+    return map[status] || '📋';
+}
+
+/**
+ * 工具函數：取得優先度 Emoji
+ */
+function getPriorityEmoji(priority) {
+    const map = {
+        'high': '🔴',
+        'medium': '🟡',
+        'low': '🟢'
+    };
+    return map[priority] || '⚪';
+}
+
+/**
+ * 工具函數：CSV 跳脫
+ */
+function escapeCsv(str) {
+    if (!str) return '';
+    return String(str).replace(/"/g, '""');
+}
+
+/**
+ * 工具函數：取得日期字串
+ */
+function getDateString() {
+    const now = new Date();
+    return now.toISOString().split('T')[0];
+}
+
+/**
+ * 工具函數：下載檔案
+ */
+function downloadFile(content, filename, mimeType) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * 工具函數：顯示通知
+ */
+function showNotification(message, type = 'info') {
+    // 簡單的通知實作
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background: ${type === 'success' ? '#4caf50' : '#2196f3'};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease;
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => document.body.removeChild(notification), 300);
+    }, 3000);
+}
+
+// 加入動畫樣式
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(400px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(400px); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
+
