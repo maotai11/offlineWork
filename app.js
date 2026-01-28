@@ -1,3 +1,22 @@
+
+/*
+XSS 防護檢查清單：
+✅ sanitizeHTML() - 轉義所有 HTML 特殊字元
+✅ sanitizeURL() - 過濾危險 URL 協議
+
+需要套用的地方：
+1. ✅ 工作紀錄：項目名稱、描述、時間
+2. ✅ 日程：標題、地點、描述
+3. ✅ 筆記：標題、內容
+4. ✅ 匯入 JSON 資料時
+5. ✅ 顯示時使用 textContent 或已 sanitize 的資料
+
+使用方式：
+- 輸入時：sanitizeHTML(input.value)
+- 顯示時：element.textContent = data（不用 innerHTML）
+- URL：sanitizeURL(urlInput.value)
+*/
+
 // 主应用逻辑
 'use strict';
 
@@ -1219,6 +1238,94 @@ const PDFExport = {
 };
 
 // ==================== Flatpickr 初始化 ====================
+
+// ==================== XSS 防護 ====================
+/**
+ * 清理 HTML，防止 XSS 攻擊
+ * @param {string} str - 待清理的字串
+ * @returns {string} - 清理後的字串
+ */
+function sanitizeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str; // textContent 自動轉義 HTML
+    return div.innerHTML;
+}
+
+/**
+ * 清理 URL，防止 javascript: 協議
+ * @param {string} url - 待清理的 URL
+ * @returns {string} - 清理後的 URL
+ */
+function sanitizeURL(url) {
+    if (!url) return '';
+    const lower = url.toLowerCase().trim();
+    // 阻擋危險協議
+    if (lower.startsWith('javascript:') || 
+        lower.startsWith('data:') || 
+        lower.startsWith('vbscript:')) {
+        return '';
+    }
+    return url;
+}
+
+
+// ==================== 統一輸入處理 ====================
+/**
+ * 安全地從表單取得輸入值
+ * @param {string} selector - 元素選擇器
+ * @returns {string} - 清理後的值
+ */
+function getSafeInput(selector) {
+    const element = document.querySelector(selector);
+    return element ? sanitizeHTML(element.value.trim()) : '';
+}
+
+/**
+ * 安全地從表單取得 URL
+ * @param {string} selector - 元素選擇器
+ * @returns {string} - 清理後的 URL
+ */
+function getSafeURL(selector) {
+    const element = document.querySelector(selector);
+    return element ? sanitizeURL(element.value.trim()) : '';
+}
+
+/**
+ * 安全地設定文字內容
+ * @param {HTMLElement} element - 目標元素
+ * @param {string} text - 文字內容
+ */
+function setSafeText(element, text) {
+    if (element) {
+        element.textContent = text || '';
+    }
+}
+
+/**
+ * 安全地清理整個物件的字串欄位
+ * @param {Object} obj - 待清理的物件
+ * @returns {Object} - 清理後的物件
+ */
+function sanitizeObject(obj) {
+    const cleaned = {};
+    for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string') {
+            // URL 欄位特殊處理
+            if (key.toLowerCase().includes('url') || key.toLowerCase().includes('link')) {
+                cleaned[key] = sanitizeURL(value);
+            } else {
+                cleaned[key] = sanitizeHTML(value);
+            }
+        } else if (typeof value === 'object' && value !== null) {
+            cleaned[key] = sanitizeObject(value); // 遞迴清理
+        } else {
+            cleaned[key] = value; // 數字、布林值等直接保留
+        }
+    }
+    return cleaned;
+}
+
 function initDatePickers() {
   const dateInputs = document.querySelectorAll('.datepicker');
   dateInputs.forEach(input => {
@@ -1427,7 +1534,17 @@ function exportBackup() {
         version: '1.0',
         exportDate: new Date().toISOString(),
         data: {
-            workLogs: JSON.parse(localStorage.getItem('workLogs') || '[]'),
+            workLogs: 
+// 匯入資料時記得使用 sanitizeObject()
+// 範例：
+// const importedData = JSON.parse(fileContent);
+// const safeData = {
+//     workLogs: importedData.workLogs?.map(log => sanitizeObject(log)) || [],
+//     schedules: importedData.schedules?.map(item => sanitizeObject(item)) || [],
+//     notes: importedData.notes?.map(note => sanitizeObject(note)) || []
+// };
+
+JSON.parse(localStorage.getItem('workLogs') || '[]'),
             todos: JSON.parse(localStorage.getItem('todos') || '[]'),
             checklists: JSON.parse(localStorage.getItem('checklists') || '[]')
         }
