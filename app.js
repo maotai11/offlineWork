@@ -1488,3 +1488,25 @@ function handleImportFile(event) {
     // 清空 input，允許重複選擇同一個檔案
     event.target.value = '';
 }
+
+
+// ==================== 深色模式 ====================
+
+// 初始化深色模式
+function initDarkMode() {
+    const darkMode = localStorage.getItem('darkMode') === 'true';
+    if (darkMode) {
+        document.body.classList.add('dark-mode');
+        document.getElementById('darkModeIcon').textContent = '☀️';
+    }
+}
+
+// 切換深色模式
+function toggleDarkMode() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    localStorage.setItem('darkMode', isDark);
+    document.getElementById('darkModeIcon').textContent = isDark ? '☀️' : '🌙';
+}
+
+// 頁面載入時初始化
+document.addEventListener('DOMContentLoaded', initDarkMode);
