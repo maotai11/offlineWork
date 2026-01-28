@@ -201,7 +201,32 @@
           <div class="form-actions">
             <button type="button" class="btn-secondary" data-modal="todoModal">取消</button>
             <button type="submit" class="btn-primary">儲存</button>
-          </div>
+          
+          <div class="form-group">
+            <label>重複設定</label>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <label style="display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="todoRecurringEnabled" style="width: auto;">
+                <span>重複</span>
+              </label>
+              <input 
+                type="number" 
+                id="todoRecurringValue" 
+                min="1" 
+                max="365" 
+                value="1"
+                placeholder="數值"
+                style="width: 80px;"
+                disabled
+              >
+              <select id="todoRecurringUnit" style="width: 100px;" disabled>
+                <option value="day">日</option>
+                <option value="week">週</option>
+                <option value="month">月</option>
+              </select>
+            </div>
+            <small style="color: #666;">啟用後，完成此任務將自動建立下一個週期的任務</small>
+          </div></div>
         </form>
       </div>
     </div>
