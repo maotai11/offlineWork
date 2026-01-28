@@ -860,6 +860,166 @@ TYPE html>
             transform: translateY(0);
         }
 
+
+        /* ==================== 深色模式 ==================== */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f5f5f5;
+            --bg-card: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: #e0e0e0;
+            --shadow: rgba(0, 0, 0, 0.1);
+            --shadow-hover: rgba(0, 0, 0, 0.15);
+        }
+
+        body.dark-mode {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --bg-card: #252525;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #404040;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --shadow-hover: rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .container {
+            background: var(--bg-secondary);
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-color: var(--border-color);
+            box-shadow: 0 2px 8px var(--shadow);
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px var(--shadow-hover);
+        }
+
+        input[type="text"],
+        input[type="date"],
+        input[type="number"],
+        textarea,
+        select {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border-color);
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+        }
+
+        .btn-theme {
+            padding: 10px 20px;
+            border: 2px solid #ff9800;
+            border-radius: 8px;
+            background: white;
+            color: #ff9800;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 50px;
+        }
+
+        body.dark-mode .btn-theme {
+            background: var(--bg-card);
+            border-color: #ffc107;
+            color: #ffc107;
+        }
+
+        .btn-theme:hover {
+            background: #ff9800;
+            color: white;
+            transform: translateY(-2px) rotate(20deg);
+            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
+        }
+
+        body.dark-mode .btn-theme:hover {
+            background: #ffc107;
+            color: #1a1a1a;
+        }
+
+        .btn-theme:active {
+            transform: translateY(0) rotate(0deg);
+        }
+
+        /* 深色模式下的按鈕調整 */
+        body.dark-mode button {
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .btn-export {
+            background: var(--bg-card);
+            border-color: #4a90e2;
+            color: #4a90e2;
+        }
+
+        body.dark-mode .btn-import {
+            background: var(--bg-card);
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        body.dark-mode .tag {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+
+        body.dark-mode .tag:hover {
+            background: #404040;
+        }
+
+        /* 深色模式下的狀態顏色調整 */
+        body.dark-mode .status-todo {
+            background: #424242;
+            color: #90caf9;
+        }
+
+        body.dark-mode .status-in-progress {
+            background: #424242;
+            color: #fff59d;
+        }
+
+        body.dark-mode .status-completed {
+            background: #424242;
+            color: #81c784;
+        }
+
+        body.dark-mode .status-on-hold {
+            background: #424242;
+            color: #ffb74d;
+        }
+
+        body.dark-mode .status-cancelled {
+            background: #424242;
+            color: #e57373;
+        }
+
+        /* 深色模式下的優先度顏色 */
+        body.dark-mode .priority-high {
+            color: #ef5350;
+        }
+
+        body.dark-mode .priority-medium {
+            color: #ffb74d;
+        }
+
+        body.dark-mode .priority-low {
+            color: #81c784;
+        }
+
 </style>
 
 </head>
@@ -1310,6 +1470,10 @@ TYPE html>
                 <button onclick="document.getElementById('import-file').click()" class="btn-import" title="匯入 JSON 備份檔">
                     📤 匯入
                 </button>
+                <button onclick="toggleTheme()" class="btn-theme" title="切換深色/淺色模式" id="theme-toggle">
+                    🌙
+                </button>
+
             </div>
             <!-- 隱藏的檔案輸入 -->
             <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
