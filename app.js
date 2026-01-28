@@ -1510,3 +1510,71 @@ function toggleDarkMode() {
 
 // 頁面載入時初始化
 document.addEventListener('DOMContentLoaded', initDarkMode);
+
+
+// 修復 PDF 中文顯示
+// 方法：使用 html2canvas 將內容轉為圖片，避免字體問題
+async function exportCalendarPDF() {
+    const calendar = document.querySelector('.calendar') || document.querySelector('#calendar');
+    if (!calendar) {
+        alert('找不到月曆元素');
+        return;
+    }
+
+    try {
+        // 使用 html2canvas 截圖
+        const canvas = await html2canvas(calendar, {
+            scale: 2, // 提高解析度
+            useCORS: true,
+            logging: false,
+            backgroundColor: document.body.classList.contains('dark-mode') ? '#1a1a1a' : '#ffffff'
+        });
+
+        // 創建 PDF
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const imgWidth = 210; // A4 寬度
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // 如果圖片高度超過一頁，需要分頁
+        if (imgHeight <= 297) {
+            // 單頁
+            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        } else {
+            // 多頁處理
+            let heightLeft = imgHeight;
+            let position = 0;
+            const pageHeight = 297;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+        }
+
+        // 下載 PDF
+        const fileName = `月曆_${new Date().toISOString().slice(0, 10)}.pdf`;
+        pdf.save(fileName);
+
+        alert('✅ PDF 匯出成功！');
+
+    } catch (error) {
+        console.error('PDF 匯出錯誤:', error);
+        alert('❌ PDF 匯出失敗：' + error.message);
+    }
+}
+
+// 如果原有的 exportPDF 函數存在，替換它
+if (typeof exportPDF !== 'undefined') {
+    window.exportPDF = exportCalendarPDF;
+}
