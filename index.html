@@ -1220,6 +1220,55 @@ TYPE html>
             }
         }
 
+
+        /* ==================== 排序功能 ==================== */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            flex: 1;
+        }
+
+        .sort-select {
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .sort-select:hover {
+            border-color: #4a90e2;
+        }
+
+        .sort-select:focus {
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+        }
+
+        @media (max-width: 600px) {
+            .section-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .sort-select {
+                width: 100%;
+            }
+        }
+
 </style>
 
 </head>
