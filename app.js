@@ -1,7 +1,7 @@
 // 主应用逻辑
 'use strict';
 
-// ==================== 全局状态 ====================
+// ==================== 全局狀態 ====================
 const AppState = {
   currentView: 'calendar',
   currentMonth: new Date(),
@@ -41,7 +41,7 @@ const Utils = {
     return { firstDay, lastDay };
   },
 
-  // 显示 Toast 通知
+  // 顯示 Toast 通知
   showToast(message, type = 'info') {
     const toast = document.getElementById('toast');
     toast.textContent = message;
@@ -51,12 +51,12 @@ const Utils = {
     }, 3000);
   },
 
-  // 安全设置文本内容（防止 XSS）
+  // 安全設定文本內容（防止 XSS）
   setTextContent(element, text) {
     element.textContent = text;
   },
 
-  // 压缩图片为 Base64
+  // 压缩圖片为 Base64
   async compressImage(file) {
     try {
       const options = {
@@ -72,7 +72,7 @@ const Utils = {
         reader.readAsDataURL(compressedFile);
       });
     } catch (error) {
-      console.error('图片压缩失败:', error);
+      console.error('圖片压缩失败:', error);
       throw error;
     }
   }
@@ -117,23 +117,23 @@ const Modal = {
   }
 };
 
-// ==================== 视图切换 ====================
+// ==================== 檢視切换 ====================
 const ViewManager = {
   switchView(viewName) {
-    // 更新状态
+    // 更新狀態
     AppState.currentView = viewName;
 
-    // 更新标签页
+    // 更新標籤页
     document.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.getAttribute('data-tab') === viewName);
     });
 
-    // 更新视图
+    // 更新檢視
     document.querySelectorAll('.view').forEach(view => {
       view.classList.toggle('active', view.id === `${viewName}View`);
     });
 
-    // 刷新对应视图
+    // 刷新对应檢視
     switch (viewName) {
       case 'calendar':
         Calendar.render();
@@ -160,12 +160,12 @@ const ViewManager = {
   }
 };
 
-// ==================== 月历视图 ====================
+// ==================== 月曆檢視 ====================
 const Calendar = {
   async render() {
     const { firstDay, lastDay } = Utils.getMonthBounds(AppState.currentMonth);
     
-    // 更新月份标题
+    // 更新月份標題
     document.getElementById('currentMonth').textContent = Utils.getMonthName(AppState.currentMonth);
 
     // 获取本月所有数据
@@ -181,7 +181,7 @@ const Calendar = {
     // 构建日期数据映射
     const dateMap = {};
     
-    // 工作纪录
+    // 工作紀錄
     if (workResult.success) {
       workResult.records.forEach(record => {
         if (!dateMap[record.date]) dateMap[record.date] = { works: [], todos: [], checks: [] };
@@ -189,7 +189,7 @@ const Calendar = {
       });
     }
 
-    // 代办事项
+    // 代辦事項
     if (todosResult.success) {
       todosResult.todos.forEach(todo => {
         if (todo.dueDate && !todo.completed) {
@@ -199,7 +199,7 @@ const Calendar = {
       });
     }
 
-    // 核对事项
+    // 核對事項
     if (checksResult.success) {
       checksResult.items.forEach(item => {
         if (!dateMap[item.nextDue]) dateMap[item.nextDue] = { works: [], todos: [], checks: [] };
@@ -207,7 +207,7 @@ const Calendar = {
       });
     }
 
-    // 渲染月历
+    // 渲染月曆
     this.renderCalendarGrid(firstDay, lastDay, dateMap);
   },
 
@@ -215,7 +215,7 @@ const Calendar = {
     const calendar = document.getElementById('calendar');
     calendar.innerHTML = '';
 
-    // 添加星期标题
+    // 添加星期標題
     const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
     weekdays.forEach(day => {
       const dayHeader = document.createElement('div');
@@ -256,28 +256,28 @@ const Calendar = {
       Utils.setTextContent(dayNumber, day);
       dayElement.appendChild(dayNumber);
 
-      // 事项指示器
+      // 事項指示器
       const indicators = document.createElement('div');
       indicators.className = 'day-indicators';
       
       if (dayData.works.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator work';
-        indicator.title = `${dayData.works.length} 条工作纪录`;
+        indicator.title = `${dayData.works.length} 条工作紀錄`;
         indicators.appendChild(indicator);
       }
       
       if (dayData.todos.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator todo';
-        indicator.title = `${dayData.todos.length} 个代办事项`;
+        indicator.title = `${dayData.todos.length} 个代辦事項`;
         indicators.appendChild(indicator);
       }
       
       if (dayData.checks.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator check';
-        indicator.title = `${dayData.checks.length} 个核对事项`;
+        indicator.title = `${dayData.checks.length} 个核對事項`;
         indicators.appendChild(indicator);
       }
 
@@ -297,7 +297,7 @@ const Calendar = {
     details.innerHTML = '';
     details.classList.remove('hidden');
 
-    // 标题
+    // 標題
     const header = document.createElement('div');
     header.className = 'day-details-header';
     const title = document.createElement('h3');
@@ -313,21 +313,21 @@ const Calendar = {
     header.appendChild(closeBtn);
     details.appendChild(header);
 
-    // 内容
+    // 內容
     const content = document.createElement('div');
     content.className = 'day-details-content';
 
     if (data.works.length === 0 && data.todos.length === 0 && data.checks.length === 0) {
       const empty = document.createElement('p');
       empty.className = 'empty-message';
-      Utils.setTextContent(empty, '当日无事项');
+      Utils.setTextContent(empty, '当日无事項');
       content.appendChild(empty);
     } else {
       if (data.works.length > 0) {
         const section = document.createElement('div');
         section.className = 'detail-section';
         const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '工作纪录');
+        Utils.setTextContent(sectionTitle, '工作紀錄');
         section.appendChild(sectionTitle);
         data.works.forEach(work => {
           const item = document.createElement('div');
@@ -342,7 +342,7 @@ const Calendar = {
         const section = document.createElement('div');
         section.className = 'detail-section';
         const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '代办事项');
+        Utils.setTextContent(sectionTitle, '代辦事項');
         section.appendChild(sectionTitle);
         data.todos.forEach(todo => {
           const item = document.createElement('div');
@@ -357,7 +357,7 @@ const Calendar = {
         const section = document.createElement('div');
         section.className = 'detail-section';
         const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '核对事项');
+        Utils.setTextContent(sectionTitle, '核對事項');
         section.appendChild(sectionTitle);
         data.checks.forEach(check => {
           const item = document.createElement('div');
@@ -387,7 +387,7 @@ const Calendar = {
   }
 };
 
-// ==================== 工作纪录UI ====================
+// ==================== 工作紀錄UI ====================
 const WorkRecordsUI = {
   async render() {
     const result = await WorkRecords.getAll();
@@ -397,7 +397,7 @@ const WorkRecordsUI = {
     if (!result.success || result.records.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      Utils.setTextContent(empty, '暂无工作纪录');
+      Utils.setTextContent(empty, '暂无工作紀錄');
       list.appendChild(empty);
       return;
     }
@@ -418,13 +418,13 @@ const WorkRecordsUI = {
     Utils.setTextContent(date, record.date);
     item.appendChild(date);
 
-    // 内容
+    // 內容
     const content = document.createElement('div');
     content.className = 'item-content';
     Utils.setTextContent(content, record.content);
     item.appendChild(content);
 
-    // 标签
+    // 標籤
     if (record.tags && record.tags.length > 0) {
       const tags = document.createElement('div');
       tags.className = 'item-tags';
@@ -437,14 +437,14 @@ const WorkRecordsUI = {
       item.appendChild(tags);
     }
 
-    // 图片
+    // 圖片
     if (record.images && record.images.length > 0) {
       const images = document.createElement('div');
       images.className = 'item-images';
       record.images.forEach(img => {
         const imgEl = document.createElement('img');
         imgEl.src = img;
-        imgEl.alt = '工作图片';
+        imgEl.alt = '工作圖片';
         images.appendChild(imgEl);
       });
       item.appendChild(images);
@@ -473,13 +473,13 @@ const WorkRecordsUI = {
 
   async edit(record) {
     AppState.editingItem = record;
-    document.getElementById('workModalTitle').textContent = '编辑工作纪录';
+    document.getElementById('workModalTitle').textContent = '編輯工作紀錄';
     document.getElementById('workId').value = record.id;
     document.getElementById('workDate').value = record.date;
     document.getElementById('workContent').value = record.content;
     document.getElementById('workTags').value = record.tags ? record.tags.join(', ') : '';
     
-    // 显示现有图片
+    // 顯示现有圖片
     const preview = document.getElementById('imagePreview');
     preview.innerHTML = '';
     if (record.images && record.images.length > 0) {
@@ -497,21 +497,21 @@ const WorkRecordsUI = {
   },
 
   async delete(id) {
-    if (!confirm('确定要删除这条工作纪录吗？')) return;
+    if (!confirm('确定要刪除这条工作紀錄吗？')) return;
     
     const result = await WorkRecords.delete(id);
     if (result.success) {
-      Utils.showToast('删除成功', 'success');
+      Utils.showToast('刪除成功', 'success');
       this.render();
     } else {
-      Utils.showToast('删除失败', 'error');
+      Utils.showToast('刪除失败', 'error');
     }
   },
 
   init() {
     document.getElementById('addWorkBtn').addEventListener('click', () => {
       AppState.editingItem = null;
-      document.getElementById('workModalTitle').textContent = '新增工作纪录';
+      document.getElementById('workModalTitle').textContent = '新增工作紀錄';
       document.getElementById('workForm').reset();
       document.getElementById('workId').value = '';
       document.getElementById('imagePreview').innerHTML = '';
@@ -524,7 +524,7 @@ const WorkRecordsUI = {
       await this.save();
     });
 
-    // 图片预览
+    // 圖片预览
     document.getElementById('workImages').addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       const preview = document.getElementById('imagePreview');
@@ -540,7 +540,7 @@ const WorkRecordsUI = {
           imgWrapper.appendChild(img);
           preview.appendChild(imgWrapper);
         } catch (error) {
-          Utils.showToast('图片处理失败', 'error');
+          Utils.showToast('圖片处理失败', 'error');
         }
       }
     });
@@ -553,7 +553,7 @@ const WorkRecordsUI = {
     const tagsInput = document.getElementById('workTags').value;
     const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(t => t) : [];
 
-    // 获取图片
+    // 获取圖片
     const images = [];
     document.querySelectorAll('#imagePreview img').forEach(img => {
       images.push(img.src);
@@ -574,12 +574,12 @@ const WorkRecordsUI = {
       this.render();
       Calendar.render();
     } else {
-      Utils.showToast('保存失败', 'error');
+      Utils.showToast('儲存失败', 'error');
     }
   }
 };
 
-// ==================== 代办事项UI ====================
+// ==================== 代辦事項UI ====================
 const TodosUI = {
   sortable: null,
 
@@ -612,7 +612,7 @@ const TodosUI = {
     if (todos.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      Utils.setTextContent(empty, '暂无代办事项');
+      Utils.setTextContent(empty, '暂无代辦事項');
       list.appendChild(empty);
       return;
     }
@@ -641,7 +641,7 @@ const TodosUI = {
     checkbox.addEventListener('change', () => this.toggleComplete(todo.id));
     item.appendChild(checkbox);
 
-    // 内容
+    // 內容
     const content = document.createElement('div');
     content.className = 'todo-content';
     
@@ -659,7 +659,7 @@ const TodosUI = {
 
     item.appendChild(content);
 
-    // 优先级标签
+    // 優先級標籤
     const priority = document.createElement('span');
     priority.className = `priority-badge priority-${todo.priority}`;
     const priorityText = { low: '低', medium: '中', high: '高' };
@@ -697,7 +697,7 @@ const TodosUI = {
 
   async edit(todo) {
     AppState.editingItem = todo;
-    document.getElementById('todoModalTitle').textContent = '编辑代办事项';
+    document.getElementById('todoModalTitle').textContent = '編輯代辦事項';
     document.getElementById('todoId').value = todo.id;
     document.getElementById('todoTitle').value = todo.title;
     document.getElementById('todoPriority').value = todo.priority;
@@ -706,15 +706,15 @@ const TodosUI = {
   },
 
   async delete(id) {
-    if (!confirm('确定要删除这个代办事项吗？')) return;
+    if (!confirm('确定要刪除这个代辦事項吗？')) return;
     
     const result = await Todos.delete(id);
     if (result.success) {
-      Utils.showToast('删除成功', 'success');
+      Utils.showToast('刪除成功', 'success');
       this.render();
       Calendar.render();
     } else {
-      Utils.showToast('删除失败', 'error');
+      Utils.showToast('刪除失败', 'error');
     }
   },
 
@@ -741,7 +741,7 @@ const TodosUI = {
   init() {
     document.getElementById('addTodoBtn').addEventListener('click', () => {
       AppState.editingItem = null;
-      document.getElementById('todoModalTitle').textContent = '新增代办事项';
+      document.getElementById('todoModalTitle').textContent = '新增代辦事項';
       document.getElementById('todoForm').reset();
       document.getElementById('todoId').value = '';
       Modal.open('todoModal');
@@ -784,12 +784,12 @@ const TodosUI = {
       this.render();
       Calendar.render();
     } else {
-      Utils.showToast('保存失败', 'error');
+      Utils.showToast('儲存失败', 'error');
     }
   }
 };
 
-// ==================== 核对事项UI ====================
+// ==================== 核對事項UI ====================
 const CheckItemsUI = {
   async render() {
     const result = await CheckItems.getAll();
@@ -799,7 +799,7 @@ const CheckItemsUI = {
     if (!result.success || result.items.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      Utils.setTextContent(empty, '暂无核对事项');
+      Utils.setTextContent(empty, '暂无核對事項');
       list.appendChild(empty);
       return;
     }
@@ -819,7 +819,7 @@ const CheckItemsUI = {
       el.classList.add('overdue');
     }
 
-    // 内容
+    // 內容
     const content = document.createElement('div');
     content.className = 'check-content';
     
@@ -842,7 +842,7 @@ const CheckItemsUI = {
     
     const checkBtn = document.createElement('button');
     checkBtn.className = 'btn-primary btn-sm';
-    Utils.setTextContent(checkBtn, '已核对');
+    Utils.setTextContent(checkBtn, '已核對');
     checkBtn.addEventListener('click', () => this.markChecked(item.id));
     actions.appendChild(checkBtn);
 
@@ -866,7 +866,7 @@ const CheckItemsUI = {
   async markChecked(id) {
     const result = await CheckItems.markChecked(id);
     if (result.success) {
-      Utils.showToast('已标记为核对完成', 'success');
+      Utils.showToast('已标记为核對完成', 'success');
       this.render();
       Calendar.render();
     } else {
@@ -876,7 +876,7 @@ const CheckItemsUI = {
 
   async edit(item) {
     AppState.editingItem = item;
-    document.getElementById('checkModalTitle').textContent = '编辑核对事项';
+    document.getElementById('checkModalTitle').textContent = '編輯核對事項';
     document.getElementById('checkId').value = item.id;
     document.getElementById('checkTitle').value = item.title;
     document.getElementById('checkUser').value = item.user;
@@ -886,22 +886,22 @@ const CheckItemsUI = {
   },
 
   async delete(id) {
-    if (!confirm('确定要删除这个核对事项吗？')) return;
+    if (!confirm('确定要刪除这个核對事項吗？')) return;
     
     const result = await CheckItems.delete(id);
     if (result.success) {
-      Utils.showToast('删除成功', 'success');
+      Utils.showToast('刪除成功', 'success');
       this.render();
       Calendar.render();
     } else {
-      Utils.showToast('删除失败', 'error');
+      Utils.showToast('刪除失败', 'error');
     }
   },
 
   init() {
     document.getElementById('addCheckBtn').addEventListener('click', () => {
       AppState.editingItem = null;
-      document.getElementById('checkModalTitle').textContent = '新增核对事项';
+      document.getElementById('checkModalTitle').textContent = '新增核對事項';
       document.getElementById('checkForm').reset();
       document.getElementById('checkId').value = '';
       Modal.open('checkModal');
@@ -935,12 +935,12 @@ const CheckItemsUI = {
       this.render();
       Calendar.render();
     } else {
-      Utils.showToast('保存失败', 'error');
+      Utils.showToast('儲存失败', 'error');
     }
   }
 };
 
-// ==================== 搜索功能 ====================
+// ==================== 搜尋功能 ====================
 const Search = {
   async search(query) {
     if (!query.trim()) return;
@@ -952,7 +952,7 @@ const Search = {
     if (!result.success || result.records.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'empty-state';
-      Utils.setTextContent(empty, '无搜索结果');
+      Utils.setTextContent(empty, '无搜尋结果');
       resultsDiv.appendChild(empty);
       return;
     }
@@ -996,7 +996,7 @@ const Search = {
   }
 };
 
-// ==================== PDF导出功能 ====================
+// ==================== PDF匯出功能 ====================
 const PDFExport = {
   async export(type) {
     Utils.showToast('正在生成PDF...', 'info');
@@ -1010,24 +1010,24 @@ const PDFExport = {
 
       switch (type) {
         case 'all':
-          title = '全部数据导出';
-          // 导出所有内容需要分别截图拼接
+          title = '全部数据匯出';
+          // 匯出所有內容需要分别截图拼接
           await this.exportAll(pdf);
           break;
         case 'calendar':
-          title = '月历视图';
+          title = '月曆檢視';
           element = document.getElementById('calendarView');
           break;
         case 'work':
-          title = '工作纪录';
+          title = '工作紀錄';
           element = document.getElementById('workList');
           break;
         case 'todos':
-          title = '代办事项';
+          title = '代辦事項';
           element = document.getElementById('todoList');
           break;
         case 'checks':
-          title = '核对事项';
+          title = '核對事項';
           element = document.getElementById('checkList');
           break;
       }
@@ -1049,18 +1049,18 @@ const PDFExport = {
       const filename = `${title}_${Utils.formatDate(new Date())}.pdf`;
       pdf.save(filename);
       
-      Utils.showToast('PDF导出成功', 'success');
+      Utils.showToast('PDF匯出成功', 'success');
       Modal.close('exportModal');
     } catch (error) {
-      console.error('PDF导出失败:', error);
-      Utils.showToast('PDF导出失败', 'error');
+      console.error('PDF匯出失败:', error);
+      Utils.showToast('PDF匯出失败', 'error');
     }
   },
 
   async exportAll(pdf) {
-    // 导出所有视图（简化版本，实际需要更复杂的处理）
+    // 匯出所有檢視（简化版本，实际需要更复杂的处理）
     const views = ['calendar', 'work', 'todos', 'checks'];
-    const titles = ['月历视图', '工作纪录', '代办事项', '核对事项'];
+    const titles = ['月曆檢視', '工作紀錄', '代辦事項', '核對事項'];
     
     for (let i = 0; i < views.length; i++) {
       if (i > 0) pdf.addPage();
@@ -1138,7 +1138,7 @@ async function initApp() {
   // 注册 Service Worker
   await registerServiceWorker();
 
-  // 初始化日期选择器
+  // 初始化日期選擇器
   initDatePickers();
 
   // 初始化各模块
@@ -1151,7 +1151,7 @@ async function initApp() {
   Search.init();
   PDFExport.init();
 
-  // 默认显示月历视图
+  // 預設顯示月曆檢視
   ViewManager.switchView('calendar');
 
   console.log('应用初始化完成');
