@@ -163,49 +163,60 @@ const ViewManager = {
 // ==================== 月曆檢視 ====================
 const Calendar = {
   async render() {
-    const { firstDay, lastDay } = Utils.getMonthBounds(AppState.currentMonth);
-    
-    // 更新月份標題
-    document.getElementById('currentMonth').textContent = Utils.getMonthName(AppState.currentMonth);
+    const year = AppState.currentYear;
+    const month = AppState.currentMonth;
 
-    // 获取本月所有数据
-    const startDate = Utils.formatDate(firstDay);
-    const endDate = Utils.formatDate(lastDay);
-    
-    const [workResult, todosResult, checksResult] = await Promise.all([
-      WorkRecords.getByDateRange(startDate, endDate),
-      Todos.getAll(false),
-      CheckItems.getDue(30)
-    ]);
+    const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', 
+                        '7月', '8月', '9月', '10月', '11月', '12月'];
+    document.getElementById('currentMonth').textContent = 
+      `${year}年 ${monthNames[month]}`;
 
-    // 构建日期数据映射
+    // 取得所有資料
+    const workResult = await db.getWorkRecordsByMonth(year, month);
+    const todoResult = await db.getTodosByMonth(year, month);
+    const checkResult = await db.getCheckItemsByMonth(year, month);
+
     const dateMap = {};
-    
+
     // 工作紀錄
     if (workResult.success) {
       workResult.records.forEach(record => {
-        if (!dateMap[record.date]) dateMap[record.date] = { works: [], todos: [], checks: [] };
-        dateMap[record.date].works.push(record);
+        const date = record.date;
+        if (!dateMap[date]) {
+          dateMap[date] = { works: [], todos: [], checks: [] };
+        }
+        dateMap[date].works.push(record);
       });
     }
 
-    // 代辦事項
-    if (todosResult.success) {
-      todosResult.todos.forEach(todo => {
-        if (todo.dueDate && !todo.completed) {
-          if (!dateMap[todo.dueDate]) dateMap[todo.dueDate] = { works: [], todos: [], checks: [] };
-          dateMap[todo.dueDate].todos.push(todo);
+    // 代辦事項（使用截止日）
+    if (todoResult.success) {
+      todoResult.todos.forEach(todo => {
+        if (todo.dueDate) {
+          const date = todo.dueDate;
+          if (!dateMap[date]) {
+            dateMap[date] = { works: [], todos: [], checks: [] };
+          }
+          dateMap[date].todos.push(todo);
         }
       });
     }
 
-    // 核對事項
-    if (checksResult.success) {
-      checksResult.items.forEach(item => {
-        if (!dateMap[item.nextDue]) dateMap[item.nextDue] = { works: [], todos: [], checks: [] };
-        dateMap[item.nextDue].checks.push(item);
+    // 核對清單（使用下次到期日）
+    if (checkResult.success) {
+      checkResult.items.forEach(item => {
+        if (item.nextDue) {
+          const date = item.nextDue;
+          if (!dateMap[date]) {
+            dateMap[date] = { works: [], todos: [], checks: [] };
+          }
+          dateMap[date].checks.push(item);
+        }
       });
     }
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const lastDay = new Date(year, month + 1, 0).getDate();
 
     // 渲染月曆
     this.renderCalendarGrid(firstDay, lastDay, dateMap);
@@ -215,174 +226,195 @@ const Calendar = {
     const calendar = document.getElementById('calendar');
     calendar.innerHTML = '';
 
-    // 添加星期標題
-    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-    weekdays.forEach(day => {
+    const dayNames = ['日', '一', '二', '三', '四', '五', '六'];
+    dayNames.forEach(day => {
       const dayHeader = document.createElement('div');
       dayHeader.className = 'calendar-day-header';
-      Utils.setTextContent(dayHeader, day);
+      dayHeader.textContent = day;
       calendar.appendChild(dayHeader);
     });
 
-    // 计算第一天是星期几
-    const firstDayOfWeek = firstDay.getDay();
-    
-    // 填充空白
-    for (let i = 0; i < firstDayOfWeek; i++) {
+    // 空白日期
+    for (let i = 0; i < firstDay; i++) {
       const emptyDay = document.createElement('div');
       emptyDay.className = 'calendar-day empty';
       calendar.appendChild(emptyDay);
     }
 
     // 填充日期
-    const today = Utils.formatDate(new Date());
-    const daysInMonth = lastDay.getDate();
-    
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(firstDay.getFullYear(), firstDay.getMonth(), day);
-      const dateStr = Utils.formatDate(date);
-      const dayData = dateMap[dateStr] || { works: [], todos: [], checks: [] };
-      
+    const year = AppState.currentYear;
+    const month = AppState.currentMonth;
+
+    for (let day = 1; day <= lastDay; day++) {
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const data = dateMap[dateStr] || { works: [], todos: [], checks: [] };
+
       const dayElement = document.createElement('div');
       dayElement.className = 'calendar-day';
-      
-      if (dateStr === today) {
-        dayElement.classList.add('today');
-      }
+      dayElement.dataset.date = dateStr;
 
-      // 日期数字
-      const dayNumber = document.createElement('div');
-      dayNumber.className = 'day-number';
-      Utils.setTextContent(dayNumber, day);
-      dayElement.appendChild(dayNumber);
+      // 日期數字
+      const dateNum = document.createElement('div');
+      dateNum.className = 'date-number';
+      dateNum.textContent = day;
+      dayElement.appendChild(dateNum);
 
-      // 事項指示器
+      // 事件標記容器
       const indicators = document.createElement('div');
-      indicators.className = 'day-indicators';
-      
-      if (dayData.works.length > 0) {
+      indicators.className = 'event-indicators';
+      indicators.style.cssText = 'display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px;';
+
+      // 工作紀錄標記（藍色）
+      if (data.works.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator work';
-        indicator.title = `${dayData.works.length} 条工作紀錄`;
+        indicator.style.cssText = 'background: #3b82f6; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px;';
+        indicator.title = `${data.works.length} 個工作紀錄`;
+        indicator.textContent = `📋${data.works.length}`;
         indicators.appendChild(indicator);
       }
-      
-      if (dayData.todos.length > 0) {
+
+      // 代辦事項標記（橙色）
+      if (data.todos.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator todo';
-        indicator.title = `${dayData.todos.length} 个代辦事項`;
+        indicator.style.cssText = 'background: #f97316; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px;';
+        indicator.title = `${data.todos.length} 個代辦事項`;
+        indicator.textContent = `✓${data.todos.length}`;
         indicators.appendChild(indicator);
       }
-      
-      if (dayData.checks.length > 0) {
+
+      // 核對清單標記（綠色）
+      if (data.checks.length > 0) {
         const indicator = document.createElement('span');
         indicator.className = 'indicator check';
-        indicator.title = `${dayData.checks.length} 个核對事項`;
+        indicator.style.cssText = 'background: #10b981; color: white; padding: 2px 6px; border-radius: 10px; font-size: 11px;';
+        indicator.title = `${data.checks.length} 個核對事項`;
+        indicator.textContent = `☑${data.checks.length}`;
         indicators.appendChild(indicator);
       }
 
       dayElement.appendChild(indicators);
 
-      // 点击事件
+      // 點擊事件
       dayElement.addEventListener('click', () => {
-        this.showDayDetails(dateStr, dayData);
+        this.showDateDetails(dateStr, data);
       });
+
+      // 今天標記
+      const today = new Date();
+      if (year === today.getFullYear() && 
+          month === today.getMonth() && 
+          day === today.getDate()) {
+        dayElement.classList.add('today');
+        dayElement.style.background = '#fef3c7';
+      }
 
       calendar.appendChild(dayElement);
     }
   },
 
-  showDayDetails(date, data) {
-    const details = document.getElementById('dayDetails');
-    details.innerHTML = '';
-    details.classList.remove('hidden');
-
-    // 標題
-    const header = document.createElement('div');
-    header.className = 'day-details-header';
-    const title = document.createElement('h3');
-    Utils.setTextContent(title, date);
-    header.appendChild(title);
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'btn-close';
-    Utils.setTextContent(closeBtn, '×');
-    closeBtn.addEventListener('click', () => {
-      details.classList.add('hidden');
-    });
-    header.appendChild(closeBtn);
-    details.appendChild(header);
-
-    // 內容
-    const content = document.createElement('div');
-    content.className = 'day-details-content';
-
-    if (data.works.length === 0 && data.todos.length === 0 && data.checks.length === 0) {
-      const empty = document.createElement('p');
-      empty.className = 'empty-message';
-      Utils.setTextContent(empty, '当日无事項');
-      content.appendChild(empty);
-    } else {
-      if (data.works.length > 0) {
-        const section = document.createElement('div');
-        section.className = 'detail-section';
-        const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '工作紀錄');
-        section.appendChild(sectionTitle);
-        data.works.forEach(work => {
-          const item = document.createElement('div');
-          item.className = 'detail-item';
-          Utils.setTextContent(item, work.content.substring(0, 100) + (work.content.length > 100 ? '...' : ''));
-          section.appendChild(item);
-        });
-        content.appendChild(section);
-      }
-
-      if (data.todos.length > 0) {
-        const section = document.createElement('div');
-        section.className = 'detail-section';
-        const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '代辦事項');
-        section.appendChild(sectionTitle);
-        data.todos.forEach(todo => {
-          const item = document.createElement('div');
-          item.className = 'detail-item';
-          Utils.setTextContent(item, `[${todo.priority.toUpperCase()}] ${todo.title}`);
-          section.appendChild(item);
-        });
-        content.appendChild(section);
-      }
-
-      if (data.checks.length > 0) {
-        const section = document.createElement('div');
-        section.className = 'detail-section';
-        const sectionTitle = document.createElement('h4');
-        Utils.setTextContent(sectionTitle, '核對事項');
-        section.appendChild(sectionTitle);
-        data.checks.forEach(check => {
-          const item = document.createElement('div');
-          item.className = 'detail-item';
-          Utils.setTextContent(item, `${check.title} (${check.user})`);
-          section.appendChild(item);
-        });
-        content.appendChild(section);
-      }
+  showDateDetails(date, data) {
+    if (!data || (data.works.length === 0 && data.todos.length === 0 && data.checks.length === 0)) {
+      Utils.showToast('此日期沒有任何事項');
+      return;
     }
 
-    details.appendChild(content);
+    // 建立詳情彈窗
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = 'display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;';
+
+    let content = `
+      <div class="modal-content" style="max-width: 600px; background: white; border-radius: 8px; max-height: 80vh; overflow: hidden; display: flex; flex-direction: column;">
+        <div class="modal-header" style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+          <h3 style="margin: 0;">${date} 的事項</h3>
+          <button class="close-btn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px; overflow-y: auto;">
+    `;
+
+    // 工作紀錄
+    if (data.works.length > 0) {
+      content += '<h4 style="color: #3b82f6; margin-top: 0;">📋 工作紀錄</h4>';
+      data.works.forEach(work => {
+        content += `
+          <div style="padding: 12px; margin: 8px 0; border-left: 3px solid #3b82f6; background: #eff6ff; border-radius: 4px;">
+            <strong>${work.content}</strong>
+            ${work.tags ? `<div style="font-size: 0.9em; color: #666; margin-top: 4px;">${work.tags}</div>` : ''}
+          </div>
+        `;
+      });
+    }
+
+    // 代辦事項
+    if (data.todos.length > 0) {
+      content += '<h4 style="color: #f97316; margin-top: 16px;">✓ 代辦事項</h4>';
+      data.todos.forEach(todo => {
+        const priorityColors = { high: '#ef4444', medium: '#f97316', low: '#10b981' };
+        const priorityNames = { high: '高', medium: '中', low: '低' };
+        content += `
+          <div style="padding: 12px; margin: 8px 0; border-left: 3px solid ${priorityColors[todo.priority]}; background: #fff7ed; border-radius: 4px;">
+            <strong>${todo.title}</strong>
+            <span style="font-size: 0.85em; color: ${priorityColors[todo.priority]}; margin-left: 8px;">
+              [${priorityNames[todo.priority]}]
+            </span>
+            ${todo.completed ? '<span style="color: #10b981; margin-left: 8px;">✓ 已完成</span>' : ''}
+          </div>
+        `;
+      });
+    }
+
+    // 核對清單
+    if (data.checks.length > 0) {
+      content += '<h4 style="color: #10b981; margin-top: 16px;">☑ 核對事項</h4>';
+      data.checks.forEach(check => {
+        content += `
+          <div style="padding: 12px; margin: 8px 0; border-left: 3px solid #10b981; background: #f0fdf4; border-radius: 4px;">
+            <strong>${check.name}</strong>
+            <div style="font-size: 0.9em; color: #666; margin-top: 4px;">${check.user}</div>
+          </div>
+        `;
+      });
+    }
+
+    content += `
+        </div>
+      </div>
+    `;
+
+    modal.innerHTML = content;
+    document.body.appendChild(modal);
+
+    // 關閉按鈕事件
+    const closeBtn = modal.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => modal.remove());
+
+    // 點擊外部關閉
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
   },
 
-  init() {
-    document.getElementById('prevMonth').addEventListener('click', () => {
-      AppState.currentMonth.setMonth(AppState.currentMonth.getMonth() - 1);
-      this.render();
-    });
+  prevMonth() {
+    if (AppState.currentMonth === 0) {
+      AppState.currentMonth = 11;
+      AppState.currentYear--;
+    } else {
+      AppState.currentMonth--;
+    }
+    this.render();
+  },
 
-    document.getElementById('nextMonth').addEventListener('click', () => {
-      AppState.currentMonth.setMonth(AppState.currentMonth.getMonth() + 1);
-      this.render();
-    });
-
+  nextMonth() {
+    if (AppState.currentMonth === 11) {
+      AppState.currentMonth = 0;
+      AppState.currentYear++;
+    } else {
+      AppState.currentMonth++;
+    }
     this.render();
   }
 };
