@@ -833,6 +833,33 @@ TYPE html>
             }
         }
 
+
+        .btn-import {
+            padding: 10px 20px;
+            border: 2px solid #4caf50;
+            border-radius: 8px;
+            background: white;
+            color: #4caf50;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-import:hover {
+            background: #4caf50;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-import:active {
+            transform: translateY(0);
+        }
+
 </style>
 
 </head>
@@ -1279,7 +1306,14 @@ TYPE html>
             <div class="search-header">
                 <div class="search-title">🔍 全文搜尋</div>
                 <button class="search-close" onclick="closeSearch()">×</button>
+
+                <button onclick="document.getElementById('import-file').click()" class="btn-import" title="匯入 JSON 備份檔">
+                    📤 匯入
+                </button>
             </div>
+            <!-- 隱藏的檔案輸入 -->
+            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
+
             <div class="search-input-wrapper">
                 <input type="text" class="search-input" id="searchInput" placeholder="輸入關鍵字搜尋..." />
             </div>
