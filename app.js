@@ -60,10 +60,12 @@ const Utils = {
   async compressImage(file) {
     try {
       const options = {
-        maxSizeMB: 0.5,
-        maxWidthOrHeight: 1024,
-        useWebWorker: true
-      };
+      maxSizeMB: 2,              // 提高到 2MB
+      maxWidthOrHeight: 2048,    // 提高到 2048px
+      useWebWorker: true,        // 使用 Web Worker 提升效能
+      quality: 0.9,              // 高品質 90%
+      initialQuality: 0.9        // 初始品質 90%
+    }
       const compressedFile = await imageCompression(file, options);
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -1156,7 +1158,60 @@ async function registerServiceWorker() {
             }
           }
         });
-      });
+      
+
+// ==================== 圖片檢視器 ====================
+function showImageViewer(imageSrc) {
+  const viewer = document.createElement('div');
+  viewer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: zoom-out;
+  `;
+
+  const img = document.createElement('img');
+  img.src = imageSrc;
+  img.style.cssText = `
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    border-radius: 8px;
+  `;
+
+  viewer.appendChild(img);
+  document.body.appendChild(viewer);
+
+  // 點擊關閉
+  viewer.addEventListener('click', () => {
+    viewer.remove();
+  });
+
+  // ESC 鍵關閉
+  const closeOnEsc = (e) => {
+    if (e.key === 'Escape') {
+      viewer.remove();
+      document.removeEventListener('keydown', closeOnEsc);
+    }
+  };
+  document.addEventListener('keydown', closeOnEsc);
+}
+
+// 為所有圖片新增點擊放大功能
+document.addEventListener('click', (e) => {
+  if (e.target.tagName === 'IMG' && e.target.closest('.work-item, .todo-item, .check-item')) {
+    e.stopPropagation();
+    showImageViewer(e.target.src);
+  }
+});
+});
     } catch (error) {
       console.error('Service Worker 注册失败:', error);
     }
