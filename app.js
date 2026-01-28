@@ -2761,3 +2761,119 @@ document.addEventListener('DOMContentLoaded', function() {
     initTheme();
 });
 
+
+// ==================== 統計儀表板 ====================
+/**
+ * 更新儀表板統計資料
+ */
+function updateDashboard() {
+    // 基本統計
+    document.getElementById('stat-projects').textContent = state.projects.length;
+    document.getElementById('stat-tasks').textContent = state.tasks.length;
+    document.getElementById('stat-goals').textContent = state.goals.length;
+    document.getElementById('stat-tags').textContent = state.tags.length;
+
+    // 完成度統計
+    updateCompletionStats();
+
+    // 標籤分佈
+    updateTagDistribution();
+}
+
+/**
+ * 更新完成度統計
+ */
+function updateCompletionStats() {
+    // 專案完成度
+    const projectsCompleted = state.projects.filter(p => p.status === 'completed').length;
+    const projectsTotal = state.projects.length;
+    const projectsPercent = projectsTotal > 0 ? Math.round((projectsCompleted / projectsTotal) * 100) : 0;
+
+    document.getElementById('progress-projects').style.width = projectsPercent + '%';
+    document.getElementById('percent-projects').textContent = projectsPercent + '%';
+
+    // 任務完成度
+    const tasksCompleted = state.tasks.filter(t => t.status === 'completed').length;
+    const tasksTotal = state.tasks.length;
+    const tasksPercent = tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0;
+
+    document.getElementById('progress-tasks').style.width = tasksPercent + '%';
+    document.getElementById('percent-tasks').textContent = tasksPercent + '%';
+
+    // 目標完成度
+    const goalsCompleted = state.goals.filter(g => g.status === 'completed').length;
+    const goalsTotal = state.goals.length;
+    const goalsPercent = goalsTotal > 0 ? Math.round((goalsCompleted / goalsTotal) * 100) : 0;
+
+    document.getElementById('progress-goals').style.width = goalsPercent + '%';
+    document.getElementById('percent-goals').textContent = goalsPercent + '%';
+}
+
+/**
+ * 更新標籤分佈
+ */
+function updateTagDistribution() {
+    const tagStats = {};
+
+    // 統計所有標籤使用次數
+    state.projects.forEach(p => {
+        p.tags.forEach(tag => {
+            tagStats[tag] = (tagStats[tag] || 0) + 1;
+        });
+    });
+
+    state.tasks.forEach(t => {
+        t.tags.forEach(tag => {
+            tagStats[tag] = (tagStats[tag] || 0) + 1;
+        });
+    });
+
+    state.goals.forEach(g => {
+        g.tags.forEach(tag => {
+            tagStats[tag] = (tagStats[tag] || 0) + 1;
+        });
+    });
+
+    // 渲染標籤統計
+    const container = document.getElementById('tag-stats');
+
+    if (Object.keys(tagStats).length === 0) {
+        container.innerHTML = '<p class="no-data">暫無標籤資料</p>';
+        return;
+    }
+
+    // 依使用次數排序
+    const sortedTags = Object.entries(tagStats).sort((a, b) => b[1] - a[1]);
+
+    container.innerHTML = sortedTags.map(([tag, count]) => `
+        <div class="tag-stat-item">
+            <span class="tag-stat-name">${sanitize(tag)}</span>
+            <span class="tag-stat-count">${count}</span>
+        </div>
+    `).join('');
+}
+
+// 修改現有的 render 函數，加入儀表板更新
+const originalRenderProjects = renderProjects;
+renderProjects = function() {
+    originalRenderProjects();
+    updateDashboard();
+};
+
+const originalRenderTasks = renderTasks;
+renderTasks = function() {
+    originalRenderTasks();
+    updateDashboard();
+};
+
+const originalRenderGoals = renderGoals;
+renderGoals = function() {
+    originalRenderGoals();
+    updateDashboard();
+};
+
+// 初始化時更新儀表板
+document.addEventListener('DOMContentLoaded', function() {
+    updateDashboard();
+});
+
