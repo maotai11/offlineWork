@@ -1869,3 +1869,220 @@ function filterByTags(items, filterTags) {
     });
 }
 
+
+
+// ==================== 搜尋功能 ====================
+/**
+ * 開啟搜尋介面
+ */
+function openSearch() {
+    const container = document.getElementById('searchContainer');
+    const input = document.getElementById('searchInput');
+    if (container) {
+        container.classList.add('active');
+        if (input) {
+            input.focus();
+            input.value = '';
+        }
+        // 清空結果
+        const results = document.getElementById('searchResults');
+        if (results) {
+            results.innerHTML = '<div class="search-no-results">輸入關鍵字開始搜尋</div>';
+        }
+    }
+}
+
+/**
+ * 關閉搜尋介面
+ */
+function closeSearch() {
+    const container = document.getElementById('searchContainer');
+    if (container) {
+        container.classList.remove('active');
+    }
+}
+
+/**
+ * 全文搜尋所有項目
+ * @param {string} keyword - 搜尋關鍵字
+ * @returns {Array} - 搜尋結果
+ */
+function searchAll(keyword) {
+    if (!keyword || keyword.trim() === '') return [];
+
+    const results = [];
+    const lowerKeyword = keyword.toLowerCase();
+
+    // 搜尋工作紀錄
+    const workLogs = JSON.parse(localStorage.getItem('workRecords') || '[]');
+    workLogs.forEach((log, index) => {
+        const searchText = `${log.project || ''} ${log.description || ''} ${log.tags?.join(' ') || ''}`.toLowerCase();
+        if (searchText.includes(lowerKeyword)) {
+            results.push({
+                type: 'work',
+                typeLabel: '工作紀錄',
+                id: index,
+                title: log.project || '無標題',
+                description: log.description || '',
+                date: log.startTime || log.date || '',
+                data: log
+            });
+        }
+    });
+
+    // 搜尋日程
+    const schedules = JSON.parse(localStorage.getItem('schedules') || '[]');
+    schedules.forEach((item, index) => {
+        const searchText = `${item.title || ''} ${item.location || ''} ${item.description || ''} ${item.tags?.join(' ') || ''}`.toLowerCase();
+        if (searchText.includes(lowerKeyword)) {
+            results.push({
+                type: 'schedule',
+                typeLabel: '日程',
+                id: index,
+                title: item.title || '無標題',
+                description: item.description || '',
+                date: item.date || '',
+                data: item
+            });
+        }
+    });
+
+    // 搜尋筆記
+    const notes = JSON.parse(localStorage.getItem('notes') || '[]');
+    notes.forEach((note, index) => {
+        const searchText = `${note.title || ''} ${note.content || ''} ${note.tags?.join(' ') || ''}`.toLowerCase();
+        if (searchText.includes(lowerKeyword)) {
+            results.push({
+                type: 'note',
+                typeLabel: '筆記',
+                id: index,
+                title: note.title || '無標題',
+                description: note.content || '',
+                date: note.createdAt || '',
+                data: note
+            });
+        }
+    });
+
+    return results;
+}
+
+/**
+ * 高亮顯示關鍵字
+ * @param {string} text - 原始文字
+ * @param {string} keyword - 關鍵字
+ * @returns {string} - 高亮後的 HTML
+ */
+function highlightKeyword(text, keyword) {
+    if (!text || !keyword) return sanitizeHTML(text);
+
+    const regex = new RegExp(`(${keyword})`, 'gi');
+    return sanitizeHTML(text).replace(regex, '<span class="search-highlight">$1</span>');
+}
+
+/**
+ * 渲染搜尋結果
+ * @param {Array} results - 搜尋結果
+ * @param {string} keyword - 搜尋關鍵字
+ */
+function renderSearchResults(results, keyword) {
+    const container = document.getElementById('searchResults');
+    if (!container) return;
+
+    if (results.length === 0) {
+        container.innerHTML = '<div class="search-no-results">沒有找到符合的結果</div>';
+        return;
+    }
+
+    container.innerHTML = results.map(item => {
+        const titleHighlighted = highlightKeyword(item.title, keyword);
+        const descHighlighted = highlightKeyword(
+            item.description.length > 100 ? item.description.substring(0, 100) + '...' : item.description,
+            keyword
+        );
+
+        return `
+            <div class="search-result-item" onclick="jumpToItem('${item.type}', ${item.id})">
+                <span class="search-result-type">${item.typeLabel}</span>
+                <div class="search-result-title">${titleHighlighted}</div>
+                ${descHighlighted ? `<div class="search-result-desc">${descHighlighted}</div>` : ''}
+                ${item.date ? `<div class="search-result-desc">📅 ${sanitizeHTML(item.date)}</div>` : ''}
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * 跳轉到指定項目
+ * @param {string} type - 項目類型
+ * @param {number} id - 項目 ID
+ */
+function jumpToItem(type, id) {
+    closeSearch();
+
+    // 切換到對應的 tab
+    if (type === 'work') {
+        // 切換到工作紀錄 tab
+        const workTab = document.querySelector('[data-tab="work"]') || document.querySelector('button[onclick*="showTab"]');
+        if (workTab) workTab.click();
+    } else if (type === 'schedule') {
+        // 切換到日程 tab
+        const scheduleTab = document.querySelectorAll('[data-tab]')[1] || document.querySelectorAll('button[onclick*="showTab"]')[1];
+        if (scheduleTab) scheduleTab.click();
+    } else if (type === 'note') {
+        // 切換到筆記 tab
+        const noteTab = document.querySelectorAll('[data-tab]')[2] || document.querySelectorAll('button[onclick*="showTab"]')[2];
+        if (noteTab) noteTab.click();
+    }
+
+    // 可以加上滾動到指定項目的邏輯
+    setTimeout(() => {
+        const items = document.querySelectorAll('.work-item, .schedule-item, .note-item');
+        if (items[id]) {
+            items[id].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            items[id].style.background = '#fff3cd';
+            setTimeout(() => {
+                items[id].style.background = '';
+            }, 2000);
+        }
+    }, 300);
+}
+
+// 初始化搜尋功能
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        // 即時搜尋
+        searchInput.addEventListener('input', function() {
+            const keyword = this.value.trim();
+            if (keyword === '') {
+                const results = document.getElementById('searchResults');
+                if (results) {
+                    results.innerHTML = '<div class="search-no-results">輸入關鍵字開始搜尋</div>';
+                }
+                return;
+            }
+
+            const results = searchAll(keyword);
+            renderSearchResults(results, keyword);
+        });
+
+        // ESC 關閉搜尋
+        searchInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeSearch();
+            }
+        });
+    }
+
+    // 點擊背景關閉
+    const searchContainer = document.getElementById('searchContainer');
+    if (searchContainer) {
+        searchContainer.addEventListener('click', function(e) {
+            if (e.target === searchContainer) {
+                closeSearch();
+            }
+        });
+    }
+});
+
