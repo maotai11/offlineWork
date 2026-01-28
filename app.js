@@ -2086,3 +2086,177 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+
+
+// ==================== 快捷鍵系統 ====================
+/**
+ * 全域快捷鍵監聽
+ */
+document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd 鍵檢測（Mac 用 Cmd，Windows/Linux 用 Ctrl）
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const ctrlKey = isMac ? e.metaKey : e.ctrlKey;
+
+    // Ctrl+F / Cmd+F - 開啟搜尋
+    if (ctrlKey && e.key === 'f') {
+        e.preventDefault();
+        if (typeof openSearch === 'function') {
+            openSearch();
+        }
+        return false;
+    }
+
+    // Ctrl+N / Cmd+N - 快速新增（開啟 FAB 選單）
+    if (ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        const fab = document.querySelector('.fab');
+        if (fab) {
+            fab.click();
+        }
+        return false;
+    }
+
+    // Ctrl+S / Cmd+S - 儲存/匯出資料
+    if (ctrlKey && e.key === 's') {
+        e.preventDefault();
+        if (typeof exportData === 'function') {
+            exportData();
+            // 顯示提示
+            showNotification('✅ 資料已匯出', 'success');
+        }
+        return false;
+    }
+
+    // Ctrl+K / Cmd+K - 切換深色模式
+    if (ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        if (typeof toggleDarkMode === 'function') {
+            toggleDarkMode();
+        }
+        return false;
+    }
+
+    // ESC - 關閉所有彈窗
+    if (e.key === 'Escape') {
+        // 關閉搜尋
+        if (typeof closeSearch === 'function') {
+            closeSearch();
+        }
+        // 關閉 FAB 選單
+        const fabMenu = document.querySelector('.fab-menu.active');
+        if (fabMenu) {
+            fabMenu.classList.remove('active');
+        }
+        // 關閉所有 modal
+        const modals = document.querySelectorAll('.modal.active, .modal[style*="display: block"]');
+        modals.forEach(modal => {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        });
+    }
+});
+
+/**
+ * 顯示通知訊息
+ * @param {string} message - 訊息內容
+ * @param {string} type - 類型 (success, error, info)
+ */
+function showNotification(message, type = 'info') {
+    // 移除舊通知
+    const oldNotification = document.querySelector('.notification-toast');
+    if (oldNotification) {
+        oldNotification.remove();
+    }
+
+    // 建立新通知
+    const notification = document.createElement('div');
+    notification.className = `notification-toast notification-${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 20px;
+        background: ${type === 'success' ? '#4caf50' : type === 'error' ? '#f44336' : '#2196F3'};
+        color: white;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        z-index: 10001;
+        animation: slideInRight 0.3s ease-out;
+        font-weight: 500;
+    `;
+
+    document.body.appendChild(notification);
+
+    // 3 秒後自動消失
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-in';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
+}
+
+// 加入動畫樣式
+if (!document.getElementById('shortcut-animations')) {
+    const style = document.createElement('style');
+    style.id = 'shortcut-animations';
+    style.textContent = `
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+/**
+ * 顯示快捷鍵說明
+ */
+function showShortcutHelp() {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+    const ctrlSymbol = isMac ? '⌘' : 'Ctrl';
+
+    const helpMessage = `
+快捷鍵說明：
+${ctrlSymbol}+F - 開啟搜尋
+${ctrlSymbol}+N - 快速新增
+${ctrlSymbol}+S - 匯出資料
+${ctrlSymbol}+K - 切換深色模式
+ESC - 關閉彈窗
+    `.trim();
+
+    alert(helpMessage);
+}
+
+// 在頁面載入時顯示快捷鍵提示（可選）
+document.addEventListener('DOMContentLoaded', function() {
+    // 檢查是否第一次使用
+    if (!localStorage.getItem('shortcutHelpShown')) {
+        setTimeout(() => {
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+            const ctrlSymbol = isMac ? '⌘' : 'Ctrl';
+            showNotification(`💡 提示：按 ${ctrlSymbol}+F 開啟搜尋`, 'info');
+            localStorage.setItem('shortcutHelpShown', 'true');
+        }, 2000);
+    }
+});
+
+console.log('⌨️ 快捷鍵已啟用！');
+console.log('Ctrl+F - 搜尋 | Ctrl+N - 新增 | Ctrl+S - 儲存 | Ctrl+K - 深色模式');
+
