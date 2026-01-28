@@ -1211,6 +1211,84 @@ document.addEventListener('click', (e) => {
     showImageViewer(e.target.src);
   }
 });
+
+
+// ==================== 重複任務處理 ====================
+// 啟用/停用重複選項
+document.addEventListener('DOMContentLoaded', () => {
+  const recurringCheckbox = document.getElementById('todoRecurringEnabled');
+  const recurringValue = document.getElementById('todoRecurringValue');
+  const recurringUnit = document.getElementById('todoRecurringUnit');
+
+  if (recurringCheckbox) {
+    recurringCheckbox.addEventListener('change', (e) => {
+      const enabled = e.target.checked;
+      recurringValue.disabled = !enabled;
+      recurringUnit.disabled = !enabled;
+    });
+  }
+});
+
+// 完成任務時檢查是否需要建立重複任務
+async function handleRecurringTodo(todo) {
+  if (!todo.recurring || !todo.recurring.enabled) {
+    return;
+  }
+
+  const { value, unit } = todo.recurring;
+  const currentDue = new Date(todo.dueDate);
+
+  // 計算下一個到期日
+  let nextDue = new Date(currentDue);
+  switch (unit) {
+    case 'day':
+      nextDue.setDate(nextDue.getDate() + value);
+      break;
+    case 'week':
+      nextDue.setDate(nextDue.getDate() + (value * 7));
+      break;
+    case 'month':
+      nextDue.setMonth(nextDue.getMonth() + value);
+      break;
+  }
+
+  // 建立新的重複任務
+  const newTodo = {
+    ...todo,
+    id: Date.now(),
+    completed: false,
+    dueDate: nextDue.toISOString().split('T')[0],
+    createdAt: new Date().toISOString()
+  };
+
+  // 儲存到資料庫
+  const result = await db.addTodo(newTodo);
+
+  if (result.success) {
+    Utils.showToast(`已建立下一個週期任務：${nextDue.toLocaleDateString()}`);
+    // 刷新顯示
+    TodoView.render();
+  }
+
+  return result;
+}
+
+// 修改完成任務的函數以支援重複
+const originalToggleTodo = TodoView.toggleComplete;
+TodoView.toggleComplete = async function(id) {
+  // 先取得任務資料
+  const todo = await db.getTodoById(id);
+
+  if (todo && !todo.completed) {
+    // 如果是從未完成變為完成，且有重複設定
+    if (todo.recurring && todo.recurring.enabled) {
+      await handleRecurringTodo(todo);
+    }
+  }
+
+  // 執行原本的完成邏輯
+  return originalToggleTodo.call(this, id);
+};
 });
     } catch (error) {
       console.error('Service Worker 注册失败:', error);
