@@ -1418,3 +1418,73 @@ if (document.readyState === 'loading') {
 } else {
   initApp();
 }
+
+// ==================== 備份還原功能 ====================
+
+// 匯出備份
+function exportBackup() {
+    const backup = {
+        version: '1.0',
+        exportDate: new Date().toISOString(),
+        data: {
+            workLogs: JSON.parse(localStorage.getItem('workLogs') || '[]'),
+            todos: JSON.parse(localStorage.getItem('todos') || '[]'),
+            checklists: JSON.parse(localStorage.getItem('checklists') || '[]')
+        }
+    };
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const filename = `offlineWork_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    alert(`✅ 備份完成！\n檔案：${filename}\n\n包含：\n- 工作紀錄 ${backup.data.workLogs.length} 筆\n- 代辦事項 ${backup.data.todos.length} 筆\n- 核對清單 ${backup.data.checklists.length} 筆`);
+}
+
+// 觸發匯入
+function importBackup() {
+    document.getElementById('importFile').click();
+}
+
+// 處理匯入檔案
+function handleImportFile(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (confirm('⚠️ 還原資料會覆蓋現有資料！\n\n建議先備份現有資料。\n\n確定要繼續嗎？')) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const backup = JSON.parse(e.target.result);
+
+                // 驗證格式
+                if (!backup.version || !backup.data) {
+                    throw new Error('備份檔案格式錯誤');
+                }
+
+                // 還原資料
+                localStorage.setItem('workLogs', JSON.stringify(backup.data.workLogs || []));
+                localStorage.setItem('todos', JSON.stringify(backup.data.todos || []));
+                localStorage.setItem('checklists', JSON.stringify(backup.data.checklists || []));
+
+                alert(`✅ 還原成功！\n\n已還原：\n- 工作紀錄 ${backup.data.workLogs.length} 筆\n- 代辦事項 ${backup.data.todos.length} 筆\n- 核對清單 ${backup.data.checklists.length} 筆\n\n頁面即將重新載入...`);
+
+                // 重新載入頁面
+                setTimeout(() => location.reload(), 1000);
+
+            } catch (error) {
+                alert('❌ 還原失敗：' + error.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // 清空 input，允許重複選擇同一個檔案
+    event.target.value = '';
+}
