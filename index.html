@@ -325,6 +325,50 @@
           <div class="form-group">
             <label for="workContent">工作內容</label>
             <textarea id="workContent" class="input-textarea" rows="6" required></textarea>
+
+            <div class="form-group">
+                <label>開始時間：</label>
+                <input type="time" id="workStartTime" class="form-control">
+            </div>
+            <div class="form-group">
+                <label>結束時間：</label>
+                <input type="time" id="workEndTime" class="form-control">
+            </div>
+            <div class="form-group" style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-top: 10px;">
+                <label>工作時數：</label>
+                <span id="workHours" style="font-weight: bold; color: #3b82f6;">--</span>
+            </div>
+
+            <script>
+                // 自動計算工時
+                function calculateWorkHours() {
+                    const startTime = document.getElementById('workStartTime').value;
+                    const endTime = document.getElementById('workEndTime').value;
+
+                    if (startTime && endTime) {
+                        const start = new Date('2000-01-01 ' + startTime);
+                        const end = new Date('2000-01-01 ' + endTime);
+
+                        let diff = (end - start) / (1000 * 60 * 60); // 轉換為小時
+
+                        // 如果結束時間早於開始時間，認為是跨日
+                        if (diff < 0) {
+                            diff += 24;
+                        }
+
+                        document.getElementById('workHours').textContent = diff.toFixed(1) + ' 小時';
+                    } else {
+                        document.getElementById('workHours').textContent = '--';
+                    }
+                }
+
+                // 監聽時間變化
+                if (document.getElementById('workStartTime')) {
+                    document.getElementById('workStartTime').addEventListener('change', calculateWorkHours);
+                    document.getElementById('workEndTime').addEventListener('change', calculateWorkHours);
+                }
+            </script>
+
           </div>
           
           <div class="form-group">
