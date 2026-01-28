@@ -1,35 +1,14 @@
-<!DOC
-
-            <!-- 匯出按鈕 -->
-            <div class="export-buttons">
-                <button onclick="exportData('json')" class="btn-export" title="匯出為 JSON 格式">
-                    📥 JSON
-                </button>
-                <button onclick="exportData('csv')" class="btn-export" title="匯出為 CSV 格式">
-                    📊 CSV
-                </button>
-                <button onclick="exportData('markdown')" class="btn-export" title="匯出為 Markdown 格式">
-                    📝 MD
-                </button>
-            </div>
-TYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="完全離線的工作管理应用">
-  <meta name="theme-color" content="#13171f">
-  <title>離線工作管理系統</title>
-  
-  <!-- 本地样式 -->
-  <link rel="stylesheet" href="./libs/flatpickr.min.css">
-  <link rel="stylesheet" href="./styles.css">
-  
-  <!-- Manifest -->
-  <link rel="manifest" href="./manifest.json">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>離線工作管理系統 Phase 4</title>
+
+    <!-- SheetJS for Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 
     <style>
-        /* 深色模式變數 */
         :root {
             --bg-primary: #ffffff;
             --bg-secondary: #f5f5f5;
@@ -38,6 +17,10 @@ TYPE html>
             --text-secondary: #666666;
             --border-color: #e0e0e0;
             --shadow: rgba(0, 0, 0, 0.1);
+            --accent: #4a90e2;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
         }
 
         body.dark-mode {
@@ -50,34 +33,56 @@ TYPE html>
             --shadow: rgba(0, 0, 0, 0.3);
         }
 
-        /* 應用變數到元素 */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-primary);
             color: var(--text-primary);
-            transition: background-color 0.3s, color 0.3s;
+            transition: all 0.3s ease;
         }
 
-        .container, .section {
-            background-color: var(--bg-card);
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .user-switcher {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-switcher select {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-card);
             color: var(--text-primary);
+            cursor: pointer;
         }
 
-        .work-log-item, .todo-item, .checklist-item,
-        .calendar-day, input, textarea, select {
-            background-color: var(--bg-card);
-            color: var(--text-primary);
-            border-color: var(--border-color);
+        .btn-new-user {
+            padding: 8px 16px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
         }
 
-        .calendar-day:hover {
-            background-color: var(--bg-secondary);
-        }
-
-        /* 深色模式按鈕 */
         .dark-mode-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
             width: 50px;
             height: 50px;
             border-radius: 50%;
@@ -88,480 +93,109 @@ TYPE html>
             align-items: center;
             justify-content: center;
             font-size: 24px;
-            box-shadow: 0 2px 8px var(--shadow);
-            z-index: 1000;
             transition: all 0.3s;
         }
 
         .dark-mode-toggle:hover {
             transform: scale(1.1);
         }
-    
-        /* 浮動新增按鈕 (FAB) */
-        .fab-container {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 999;
+
+        .filter-section {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px var(--shadow);
         }
 
-        .fab-menu {
-            position: absolute;
-            bottom: 70px;
-            right: 0;
-            display: none;
-            flex-direction: column;
+        .search-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .search-bar input {
+            flex: 1;
+            min-width: 250px;
+            padding: 10px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .filter-options {
+            display: flex;
             gap: 10px;
+            flex-wrap: wrap;
         }
 
-        .fab-container.active .fab-menu {
-            display: flex;
-        }
-
-        .fab-main {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            font-size: 28px;
-            cursor: pointer;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .fab-main:hover {
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
-        }
-
-        .fab-container.active .fab-main {
-            transform: rotate(45deg);
-        }
-
-        .fab-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            opacity: 0;
-            transform: translateY(20px);
-            transition: all 0.3s;
-        }
-
-        .fab-container.active .fab-item {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .fab-container.active .fab-item:nth-child(1) { transition-delay: 0.05s; }
-        .fab-container.active .fab-item:nth-child(2) { transition-delay: 0.1s; }
-        .fab-container.active .fab-item:nth-child(3) { transition-delay: 0.15s; }
-
-        .fab-item button {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            border: none;
-            color: white;
-            font-size: 20px;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            transition: all 0.3s;
-        }
-
-        .fab-item button:hover {
-            transform: scale(1.1);
-        }
-
-        .fab-item .fab-work {
-            background: #10b981;
-        }
-
-        .fab-item .fab-todo {
-            background: #3b82f6;
-        }
-
-        .fab-item .fab-check {
-            background: #f59e0b;
-        }
-
-        .fab-label {
+        .filter-options select,
+        .filter-options button {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
             background: var(--bg-card);
             color: var(--text-primary);
-            padding: 8px 12px;
-            border-radius: 4px;
+            cursor: pointer;
             font-size: 14px;
-            white-space: nowrap;
-            box-shadow: 0 2px 8px var(--shadow);
-            border: 1px solid var(--border-color);
         }
 
-    
-        /* 標籤系統樣式 */
-        .tag-input-container {
-            margin: 10px 0;
-        }
-
-        .tag-input-wrapper {
+        .bulk-actions {
             display: flex;
-            gap: 5px;
-            margin-bottom: 5px;
-        }
-
-        .tag-input {
-            flex: 1;
-            padding: 5px 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-
-        .tag-add-btn {
-            padding: 5px 15px;
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-
-        .tag-add-btn:hover {
-            background: var(--primary-dark);
-        }
-
-        .tags-display {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-
-        .tag {
-            display: inline-flex;
+            gap: 10px;
             align-items: center;
-            gap: 5px;
-            padding: 3px 10px;
-            background: var(--primary-color);
-            color: white;
-            border-radius: 12px;
-            font-size: 0.85rem;
-        }
-
-        .tag-remove {
-            cursor: pointer;
-            font-weight: bold;
-            padding: 0 3px;
-        }
-
-        .tag-remove:hover {
-            color: #ff6b6b;
-        }
-
-        /* 標籤篩選器 */
-        .tag-filter-container {
-            margin: 10px 0;
-            padding: 10px;
-            background: var(--card-bg);
+            margin-bottom: 15px;
+            padding: 15px;
+            background: var(--bg-secondary);
             border-radius: 8px;
         }
 
-        .tag-filter-title {
-            font-weight: bold;
-            margin-bottom: 8px;
-            color: var(--text-color);
-        }
-
-        .tag-filter-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-        }
-
-        .tag-filter {
-            padding: 5px 12px;
-            background: #f0f0f0;
-            border: 2px solid transparent;
-            border-radius: 15px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.9rem;
-        }
-
-        .tag-filter:hover {
-            background: #e0e0e0;
-        }
-
-        .tag-filter.active {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-dark);
-        }
-
-        /* 深色模式標籤 */
-        .dark-mode .tag-filter {
-            background: #444;
-            color: #eee;
-        }
-
-        .dark-mode .tag-filter:hover {
-            background: #555;
-        }
-
-        .dark-mode .tag-filter.active {
-            background: var(--primary-color);
-            color: white;
-        }
-
-    
-        /* 搜尋功能樣式 */
-        .search-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            justify-content: center;
-            align-items: flex-start;
-            padding-top: 100px;
-            z-index: 10000;
-        }
-
-        .search-container.active {
-            display: flex;
-        }
-
-        .search-box {
-            background: var(--card-bg);
-            width: 90%;
-            max-width: 600px;
-            border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
-
-        .search-header {
-            padding: 15px 20px;
-            background: var(--primary-color);
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .search-title {
-            font-weight: bold;
-            font-size: 1.1rem;
-        }
-
-        .search-close {
-            background: none;
+        .bulk-actions button {
+            padding: 8px 16px;
             border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0 10px;
-        }
-
-        .search-input-wrapper {
-            padding: 20px;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid var(--primary-color);
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        .search-input:focus {
-            outline: none;
-            border-color: var(--primary-dark);
-        }
-
-        .search-results {
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-        }
-
-        .search-result-item {
-            padding: 12px;
-            margin: 5px 0;
-            background: #f9f9f9;
             border-radius: 6px;
             cursor: pointer;
+            font-size: 14px;
             transition: all 0.2s;
         }
 
-        .search-result-item:hover {
-            background: #e8f4ff;
-            transform: translateX(5px);
+        .btn-select-all {
+            background: var(--accent);
+            color: white;
         }
 
-        .search-result-type {
-            display: inline-block;
-            padding: 2px 8px;
-            background: var(--primary-color);
+        .btn-bulk-complete {
+            background: var(--success);
             color: white;
+        }
+
+        .btn-bulk-delete {
+            background: var(--danger);
+            color: white;
+        }
+
+        .todo-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .todo-item {
+            background: var(--bg-card);
+            padding: 18px;
             border-radius: 10px;
-            font-size: 0.8rem;
-            margin-right: 8px;
-        }
-
-        .search-result-title {
-            font-weight: bold;
-            color: var(--text-color);
-            margin: 5px 0;
-        }
-
-        .search-result-desc {
-            font-size: 0.9rem;
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .search-highlight {
-            background: yellow;
-            font-weight: bold;
-        }
-
-        .search-no-results {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-        }
-
-        /* 深色模式 */
-        .dark-mode .search-result-item {
-            background: #333;
-        }
-
-        .dark-mode .search-result-item:hover {
-            background: #404040;
-        }
-
-        .dark-mode .search-result-desc {
-            color: #aaa;
-        }
-
-        .dark-mode .search-input-wrapper {
-            border-bottom: 1px solid #444;
-        }
-
-    
-        /* ==================== UI 美化 ==================== */
-
-        /* 卡片陰影與懸停效果 */
-        .work-item, .schedule-item, .note-item {
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid rgba(0,0,0,0.05);
-        }
-
-        .work-item:hover, .schedule-item:hover, .note-item:hover {
-            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-            transform: translateY(-4px);
-            border-color: var(--primary-color);
-        }
-
-        /* 按鈕美化 */
-        button {
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-        }
-
-        button:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        /* 輸入框美化 */
-        input, textarea, select {
+            border: 1px solid var(--border-color);
             transition: all 0.3s ease;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            animation: slideIn 0.3s ease;
         }
 
-        input:focus, textarea:focus, select:focus {
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-            border-color: var(--primary-color);
-        }
-
-        /* 標籤頁美化 */
-        .tabs button {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .tabs button::before {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 3px;
-            background: var(--primary-color);
-            transition: width 0.3s ease;
-        }
-
-        .tabs button.active::before {
-            width: 100%;
-        }
-
-        /* FAB 動畫增強 */
-        .fab {
-            animation: fabPulse 2s infinite;
-        }
-
-        @keyframes fabPulse {
-            0%, 100% {
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            }
-            50% {
-                box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
-            }
-        }
-
-        .fab:hover {
-            animation: none;
-        }
-
-        /* 載入動畫 */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 0.8s linear infinite;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* 淡入動畫 */
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
+        @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(20px);
+                transform: translateY(-10px);
             }
             to {
                 opacity: 1;
@@ -569,480 +203,82 @@ TYPE html>
             }
         }
 
-        /* 滑入動畫 */
-        .slide-in {
-            animation: slideIn 0.4s ease-out;
+        .todo-item:hover {
+            box-shadow: 0 4px 12px var(--shadow);
+            transform: translateY(-2px);
         }
 
-        @keyframes slideIn {
-            from {
-                transform: translateX(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
+        .todo-item.pinned {
+            border-left: 4px solid var(--accent);
+            background: linear-gradient(90deg, rgba(74, 144, 226, 0.1), var(--bg-card));
         }
 
-        /* 響應式設計改進 */
-        @media (max-width: 768px) {
-            .container {
-                padding: 10px;
-            }
-
-            .tabs {
-                flex-direction: column;
-                gap: 5px;
-            }
-
-            .tabs button {
-                width: 100%;
-            }
-
-            .search-box {
-                width: 95%;
-            }
-
-            .fab {
-                bottom: 60px;
-                right: 15px;
-            }
-
-            .work-item, .schedule-item, .note-item {
-                padding: 12px;
-            }
+        .todo-item.completed {
+            opacity: 0.6;
         }
 
-        /* 小屏幕優化 */
-        @media (max-width: 480px) {
-            h1 {
-                font-size: 1.5rem;
-            }
-
-            .header {
-                padding: 15px;
-            }
-
-            button {
-                padding: 8px 12px;
-                font-size: 0.9rem;
-            }
-
-            .fab {
-                width: 50px;
-                height: 50px;
-                font-size: 1.5rem;
-            }
-
-            .fab-menu {
-                bottom: 65px;
-                right: 15px;
-            }
-        }
-
-        /* 捲軸美化 */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 5px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 5px;
-            transition: background 0.3s;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-
-        /* 深色模式捲軸 */
-        .dark-mode ::-webkit-scrollbar-track {
-            background: #2a2a2a;
-        }
-
-        .dark-mode ::-webkit-scrollbar-thumb {
-            background: #555;
-        }
-
-        .dark-mode ::-webkit-scrollbar-thumb:hover {
-            background: #777;
-        }
-
-        /* 選取文字美化 */
-        ::selection {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        ::-moz-selection {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        /* 焦點可見性改進（無障礙） */
-        *:focus-visible {
-            outline: 3px solid var(--primary-color);
-            outline-offset: 2px;
-        }
-
-        /* 卡片內容動畫 */
-        .work-item > *, .schedule-item > *, .note-item > * {
-            animation: slideIn 0.3s ease-out;
-        }
-
-        /* 刪除按鈕改進 */
-        .delete-btn, .remove-btn {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .delete-btn::after, .remove-btn::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 0;
-            height: 0;
-            background: rgba(255,255,255,0.3);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            transition: width 0.6s, height 0.6s;
-        }
-
-        .delete-btn:active::after, .remove-btn:active::after {
-            width: 300px;
-            height: 300px;
-        }
-
-        /* 空狀態美化 */
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #999;
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        .empty-state::before {
-            content: '📋';
-            display: block;
-            font-size: 4rem;
-            margin-bottom: 20px;
-            opacity: 0.5;
-        }
-
-        /* 載入狀態 */
-        .skeleton {
-            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-            background-size: 200% 100%;
-            animation: loading 1.5s infinite;
-            border-radius: 4px;
-        }
-
-        @keyframes loading {
-            0% {
-                background-position: 200% 0;
-            }
-            100% {
-                background-position: -200% 0;
-            }
-        }
-
-        /* 成功/錯誤狀態 */
-        .success {
-            background: #4caf50;
-            color: white;
-            animation: pulse 0.5s ease-in-out;
-        }
-
-        .error {
-            background: #f44336;
-            color: white;
-            animation: shake 0.5s ease-in-out;
-        }
-
-        @keyframes pulse {
-            0%, 100% {
-                transform: scale(1);
-            }
-            50% {
-                transform: scale(1.05);
-            }
-        }
-
-        @keyframes shake {
-            0%, 100% {
-                transform: translateX(0);
-            }
-            25% {
-                transform: translateX(-10px);
-            }
-            75% {
-                transform: translateX(10px);
-            }
-        }
-
-    
-        /* ==================== 匯出按鈕樣式 ==================== */
-        .export-buttons {
-            display: flex;
-            gap: 10px;
-            margin: 15px 0;
-            justify-content: center;
-        }
-
-        .btn-export {
-            padding: 10px 20px;
-            border: 2px solid #4a90e2;
-            border-radius: 8px;
-            background: white;
-            color: #4a90e2;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .todo-header {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 12px;
+            margin-bottom: 10px;
         }
 
-        .btn-export:hover {
-            background: #4a90e2;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
-        }
-
-        .btn-export:active {
-            transform: translateY(0);
-        }
-
-        @media (max-width: 600px) {
-            .export-buttons {
-                flex-wrap: wrap;
-            }
-            .btn-export {
-                flex: 1 1 calc(50% - 5px);
-                min-width: 100px;
-            }
-        }
-
-
-        .btn-import {
-            padding: 10px 20px;
-            border: 2px solid #4caf50;
-            border-radius: 8px;
-            background: white;
-            color: #4caf50;
-            font-size: 14px;
-            font-weight: 600;
+        .todo-checkbox {
+            width: 20px;
+            height: 20px;
             cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 5px;
         }
 
-        .btn-import:hover {
-            background: #4caf50;
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+        .todo-title {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
         }
 
-        .btn-import:active {
-            transform: translateY(0);
-        }
-
-
-        /* ==================== 深色模式 ==================== */
-        :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f5f5f5;
-            --bg-card: #ffffff;
-            --text-primary: #333333;
-            --text-secondary: #666666;
-            --border-color: #e0e0e0;
-            --shadow: rgba(0, 0, 0, 0.1);
-            --shadow-hover: rgba(0, 0, 0, 0.15);
-        }
-
-        body.dark-mode {
-            --bg-primary: #1a1a1a;
-            --bg-secondary: #2d2d2d;
-            --bg-card: #252525;
-            --text-primary: #e0e0e0;
-            --text-secondary: #a0a0a0;
-            --border-color: #404040;
-            --shadow: rgba(0, 0, 0, 0.3);
-            --shadow-hover: rgba(0, 0, 0, 0.5);
-        }
-
-        body {
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            transition: background 0.3s ease, color 0.3s ease;
-        }
-
-        .container {
-            background: var(--bg-secondary);
-        }
-
-        .card {
-            background: var(--bg-card);
-            border-color: var(--border-color);
-            box-shadow: 0 2px 8px var(--shadow);
-        }
-
-        .card:hover {
-            box-shadow: 0 4px 16px var(--shadow-hover);
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="number"],
-        textarea,
-        select {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border-color: var(--border-color);
-        }
-
-        .modal-content {
-            background: var(--bg-card);
-        }
-
-        .btn-theme {
-            padding: 10px 20px;
-            border: 2px solid #ff9800;
-            border-radius: 8px;
-            background: white;
-            color: #ff9800;
+        .pin-btn {
+            background: none;
+            border: none;
             font-size: 20px;
             cursor: pointer;
-            transition: all 0.3s ease;
+            opacity: 0.5;
+            transition: all 0.2s;
+        }
+
+        .pin-btn:hover,
+        .pin-btn.active {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+
+        .todo-meta {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 50px;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            font-size: 14px;
+            color: var(--text-secondary);
         }
 
-        body.dark-mode .btn-theme {
-            background: var(--bg-card);
-            border-color: #ffc107;
-            color: #ffc107;
-        }
-
-        .btn-theme:hover {
-            background: #ff9800;
+        .category-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            background: var(--accent);
             color: white;
-            transform: translateY(-2px) rotate(20deg);
-            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.3);
-        }
-
-        body.dark-mode .btn-theme:hover {
-            background: #ffc107;
-            color: #1a1a1a;
-        }
-
-        .btn-theme:active {
-            transform: translateY(0) rotate(0deg);
-        }
-
-        /* 深色模式下的按鈕調整 */
-        body.dark-mode button {
-            color: var(--text-primary);
-        }
-
-        body.dark-mode .btn-export {
-            background: var(--bg-card);
-            border-color: #4a90e2;
-            color: #4a90e2;
-        }
-
-        body.dark-mode .btn-import {
-            background: var(--bg-card);
-            border-color: #4caf50;
-            color: #4caf50;
-        }
-
-        body.dark-mode .tag {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-
-        body.dark-mode .tag:hover {
-            background: #404040;
-        }
-
-        /* 深色模式下的狀態顏色調整 */
-        body.dark-mode .status-todo {
-            background: #424242;
-            color: #90caf9;
-        }
-
-        body.dark-mode .status-in-progress {
-            background: #424242;
-            color: #fff59d;
-        }
-
-        body.dark-mode .status-completed {
-            background: #424242;
-            color: #81c784;
-        }
-
-        body.dark-mode .status-on-hold {
-            background: #424242;
-            color: #ffb74d;
-        }
-
-        body.dark-mode .status-cancelled {
-            background: #424242;
-            color: #e57373;
-        }
-
-        /* 深色模式下的優先度顏色 */
-        body.dark-mode .priority-high {
-            color: #ef5350;
-        }
-
-        body.dark-mode .priority-medium {
-            color: #ffb74d;
-        }
-
-        body.dark-mode .priority-low {
-            color: #81c784;
-        }
-
-
-        /* ==================== 統計儀表板 ==================== */
-        .dashboard {
-            background: var(--bg-card);
             border-radius: 12px;
-            padding: 25px;
-            margin-bottom: 30px;
-            box-shadow: 0 2px 8px var(--shadow);
+            font-size: 12px;
+            font-weight: 500;
         }
 
-        .dashboard h2 {
-            margin: 0 0 20px 0;
-            color: var(--text-primary);
-            font-size: 24px;
-        }
+        .priority-high { color: var(--danger); font-weight: bold; }
+        .priority-medium { color: var(--warning); }
+        .priority-low { color: var(--text-secondary); }
 
-        .dashboard h3 {
-            margin: 20px 0 15px 0;
-            color: var(--text-primary);
-            font-size: 18px;
-        }
+        .status-todo { color: var(--text-secondary); }
+        .status-in-progress { color: var(--accent); }
+        .status-completed { color: var(--success); }
 
-        .stats-grid {
+        .dashboard {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
@@ -1050,693 +286,1054 @@ TYPE html>
         }
 
         .stat-card {
-            background: var(--bg-secondary);
-            border-radius: 10px;
+            background: var(--bg-card);
             padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            transition: all 0.3s ease;
-            border: 2px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px var(--shadow);
+            text-align: center;
         }
 
-        .stat-card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 12px var(--shadow-hover);
-        }
-
-        .stat-icon {
+        .stat-number {
             font-size: 36px;
-            line-height: 1;
-        }
-
-        .stat-content {
-            flex: 1;
-        }
-
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: #4a90e2;
-            line-height: 1;
-            margin-bottom: 5px;
+            font-weight: bold;
+            color: var(--accent);
         }
 
         .stat-label {
             font-size: 14px;
             color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-top: 8px;
         }
 
-        /* 完成度統計 */
-        .completion-stats {
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            padding: 20px;
+        .export-section {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
             margin-bottom: 20px;
         }
 
-        .completion-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .completion-item {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .completion-label {
-            min-width: 60px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .progress-bar {
-            flex: 1;
-            height: 24px;
-            background: var(--bg-card);
-            border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid var(--border-color);
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #4a90e2, #357abd);
-            transition: width 0.5s ease;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 8px;
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .completion-percent {
-            min-width: 50px;
-            text-align: right;
-            font-weight: 700;
-            color: #4a90e2;
-        }
-
-        /* 標籤分佈 */
-        .tag-distribution {
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            padding: 20px;
-        }
-
-        .tag-stats {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .tag-stat-item {
-            background: var(--bg-card);
-            border: 2px solid var(--border-color);
+        .btn-export, .btn-import {
+            padding: 10px 20px;
+            border: none;
             border-radius: 8px;
-            padding: 10px 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
         }
 
-        .tag-stat-item:hover {
-            transform: translateY(-2px);
+        .btn-export {
+            background: var(--accent);
+            color: white;
+        }
+
+        .btn-import {
+            background: var(--success);
+            color: white;
+        }
+
+        .add-form {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
             box-shadow: 0 2px 8px var(--shadow);
         }
 
-        .tag-stat-name {
-            font-weight: 600;
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-grid input,
+        .form-grid select,
+        .form-grid textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-primary);
             color: var(--text-primary);
+            font-size: 14px;
         }
 
-        .tag-stat-count {
-            background: #4a90e2;
+        .form-grid textarea {
+            grid-column: 1 / -1;
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .btn-add {
+            width: 100%;
+            padding: 12px;
+            background: var(--accent);
             color: white;
-            border-radius: 12px;
-            padding: 2px 8px;
-            font-size: 12px;
-            font-weight: 700;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s;
         }
 
-        .no-data {
-            color: var(--text-secondary);
-            font-style: italic;
-            text-align: center;
-            padding: 20px;
+        .confirm-dialog {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--bg-card);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px var(--shadow);
+            z-index: 10000;
+            min-width: 300px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translate(-50%, -60%); }
+            to { opacity: 1; transform: translate(-50%, -50%); }
+        }
+
+        .confirm-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+        }
+
+        .confirm-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .confirm-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-confirm-yes {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-confirm-no {
+            background: var(--text-secondary);
+            color: white;
         }
 
         @media (max-width: 768px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
+            .container {
+                padding: 10px;
             }
-
-            .completion-item {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 8px;
-            }
-
-            .completion-label {
-                min-width: auto;
-            }
-
-            .completion-percent {
-                text-align: center;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .stats-grid {
+            .dashboard {
                 grid-template-columns: 1fr;
             }
         }
-
-
-        /* ==================== 排序功能 ==================== */
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .section-header h2 {
-            margin: 0;
-            flex: 1;
-        }
-
-        .sort-select {
-            padding: 8px 12px;
-            border: 2px solid var(--border-color);
-            border-radius: 8px;
-            background: var(--bg-card);
-            color: var(--text-primary);
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            outline: none;
-        }
-
-        .sort-select:hover {
-            border-color: #4a90e2;
-        }
-
-        .sort-select:focus {
-            border-color: #4a90e2;
-            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
-        }
-
-        @media (max-width: 600px) {
-            .section-header {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .sort-select {
-                width: 100%;
-            }
-        }
-
-</style>
-
+    </style>
 </head>
 <body>
-    <button class="dark-mode-toggle" onclick="toggleDarkMode()" title="切換深色模式">
-        <span id="darkModeIcon">🌙</span>
-    </button>
+    <div class="container">
+        <div class="top-bar">
+            <div class="user-switcher">
+                <span>用戶:</span>
+                <select id="userSelect" onchange="app.switchUser(this.value)">
+                    <option value="default">預設用戶</option>
+                </select>
+                <button class="btn-new-user" onclick="app.addNewUser()">+ 新用戶</button>
+            </div>
 
-  <!-- 主容器 -->
-  <div id="app">
-    <!-- 导航栏 -->
-    <nav class="navbar">
-      <div class="nav-container">
-        <h1 class="app-title">離線工作管理</h1>
-        <div class="nav-actions">
-          <button id="searchBtn" class="btn-icon" title="搜尋">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.35-4.35"></path>
-            </svg>
-          </button>
-          <button id="exportBtn" class="btn-icon" title="匯出PDF">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-              <polyline points="7 10 12 15 17 10"></polyline>
-              <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-          </button>
-          <button id="settingsBtn" class="btn-icon" title="設定">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M12 1v6m0 6v6"></path>
-              <path d="m1 12 6 0m6 0 6 0"></path>
-            </svg>
-          </button>
+            <button class="dark-mode-toggle" onclick="app.toggleDarkMode()" title="切換深色模式">
+                <span id="themeIcon">🌙</span>
+            </button>
         </div>
-      </div>
-    </nav>
 
-    <!-- 標籤页 -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="calendar">月曆檢視</button>
-      <button class="tab-btn" data-tab="work">工作紀錄</button>
-      <button class="tab-btn" data-tab="todos">代辦事項</button>
-      <button class="tab-btn" data-tab="checks">核對事項</button>
-    </div>
-
-    <!-- 主內容区 -->
-    <main class="main-content">
-      <!-- 月曆檢視 -->
-      <section id="calendarView" class="view active">
-        <div class="view-header">
-          <button id="prevMonth" class="btn-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-          <h2 id="currentMonth"></h2>
-          <button id="nextMonth" class="btn-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-        <div id="calendar" class="calendar-grid"></div>
-        <div id="dayDetails" class="day-details hidden"></div>
-      </section>
-
-      <!-- 工作紀錄檢視 -->
-      <section id="workView" class="view">
-        <div class="view-header">
-          <h2>工作紀錄</h2>
-          <button id="addWorkBtn" class="btn-primary">+ 新增紀錄</button>
-        </div>
-        <div id="workList" class="item-list"></div>
-      </section>
-
-      <!-- 代辦事項檢視 -->
-      <section id="todosView" class="view">
-        <div class="view-header">
-          <h2>代辦事項</h2>
-          <div class="header-actions">
-            <button id="addTodoBtn" class="btn-primary">+ 新增代辦</button>
-            <button id="todoTemplateBtn" class="btn-secondary">模板</button>
-          </div>
-        </div>
-        <div class="filter-tabs">
-          <button class="filter-btn active" data-filter="all">全部</button>
-          <button class="filter-btn" data-filter="active">進行中</button>
-          <button class="filter-btn" data-filter="completed">已完成</button>
-          <button class="filter-btn" data-filter="high">高优先</button>
-        </div>
-        <div id="todoList" class="item-list sortable"></div>
-      </section>
-
-      <!-- 核對事項檢視 -->
-      <section id="checksView" class="view">
-        <div class="view-header">
-          <h2>每期核對事項</h2>
-          <button id="addCheckBtn" class="btn-primary">+ 新增核對</button>
-        </div>
-        <div id="checkList" class="item-list"></div>
-      </section>
-    </main>
-  </div>
-
-  <!-- 搜尋模态框 -->
-  <div id="searchModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>搜尋</h3>
-        <button class="btn-close" data-modal="searchModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <input type="text" id="searchInput" class="input-text" placeholder="輸入關鍵字搜尋...">
-        <div id="searchResults" class="search-results"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 工作紀錄表单模态框 -->
-  <div id="workModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="workModalTitle">新增工作紀錄</h3>
-        <button class="btn-close" data-modal="workModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="workForm">
-          <input type="hidden" id="workId">
-          
-          <div class="form-group">
-            <label for="workDate">日期</label>
-            <input type="text" id="workDate" class="input-text datepicker" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="workContent">工作內容</label>
-            <textarea id="workContent" class="input-textarea" rows="6" required></textarea>
-
-            <div class="form-group">
-                <label>開始時間：</label>
-                <input type="time" id="workStartTime" class="form-control">
+        <div class="dashboard" id="dashboard">
+            <div class="stat-card">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">總任務數</div>
             </div>
-            <div class="form-group">
-                <label>結束時間：</label>
-                <input type="time" id="workEndTime" class="form-control">
+            <div class="stat-card">
+                <div class="stat-number" id="completedCount">0</div>
+                <div class="stat-label">已完成</div>
             </div>
-            <div class="form-group" style="background: #f0f9ff; padding: 10px; border-radius: 4px; margin-top: 10px;">
-                <label>工作時數：</label>
-                <span id="workHours" style="font-weight: bold; color: #3b82f6;">--</span>
+            <div class="stat-card">
+                <div class="stat-number" id="inProgressCount">0</div>
+                <div class="stat-label">進行中</div>
             </div>
-
-            <script>
-                // 自動計算工時
-                function calculateWorkHours() {
-                    const startTime = document.getElementById('workStartTime').value;
-                    const endTime = document.getElementById('workEndTime').value;
-
-                    if (startTime && endTime) {
-                        const start = new Date('2000-01-01 ' + startTime);
-                        const end = new Date('2000-01-01 ' + endTime);
-
-                        let diff = (end - start) / (1000 * 60 * 60); // 轉換為小時
-
-                        // 如果結束時間早於開始時間，認為是跨日
-                        if (diff < 0) {
-                            diff += 24;
-                        }
-
-                        document.getElementById('workHours').textContent = diff.toFixed(1) + ' 小時';
-                    } else {
-                        document.getElementById('workHours').textContent = '--';
-                    }
-                }
-
-                // 監聽時間變化
-                if (document.getElementById('workStartTime')) {
-                    document.getElementById('workStartTime').addEventListener('change', calculateWorkHours);
-                    document.getElementById('workEndTime').addEventListener('change', calculateWorkHours);
-                }
-            </script>
-
-          </div>
-          
-          <div class="form-group">
-            <label for="workImages">圖片（可選）</label>
-            <input type="file" id="workImages" accept="image/*" multiple class="input-file">
-            <div id="imagePreview" class="image-preview"></div>
-          </div>
-          
-          <div class="form-group">
-            <label for="workTags">標籤（用逗号分隔）</label>
-            <input type="text" id="workTags" class="input-text" placeholder="例如: 會議, 開發, 測試">
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" data-modal="workModal">取消</button>
-            <button type="submit" class="btn-primary">儲存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- 代辦事項表单模态框 -->
-  <div id="todoModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="todoModalTitle">新增代辦事項</h3>
-        <button class="btn-close" data-modal="todoModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="todoForm">
-          <input type="hidden" id="todoId">
-          
-          <div class="form-group">
-            <label for="todoTitle">任務標題</label>
-            <input type="text" id="todoTitle" class="input-text" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="todoPriority">優先級</label>
-            <select id="todoPriority" class="input-select">
-              <option value="low">低</option>
-              <option value="medium" selected>中</option>
-              <option value="high">高</option>
-            </select>
-          </div>
-          
-          <div class="form-group">
-            <label for="todoDueDate">預計完成日</label>
-            <input type="text" id="todoDueDate" class="input-text datepicker">
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" data-modal="todoModal">取消</button>
-            <button type="submit" class="btn-primary">儲存</button>
-          
-          <div class="form-group">
-            <label>重複設定</label>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <label style="display: flex; align-items: center; gap: 5px;">
-                <input type="checkbox" id="todoRecurringEnabled" style="width: auto;">
-                <span>重複</span>
-              </label>
-              <input 
-                type="number" 
-                id="todoRecurringValue" 
-                min="1" 
-                max="365" 
-                value="1"
-                placeholder="數值"
-                style="width: 80px;"
-                disabled
-              >
-              <select id="todoRecurringUnit" style="width: 100px;" disabled>
-                <option value="day">日</option>
-                <option value="week">週</option>
-                <option value="month">月</option>
-              </select>
-            </div>
-            <small style="color: #666;">啟用後，完成此任務將自動建立下一個週期的任務</small>
-          </div></div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- 核對事項表单模态框 -->
-  <div id="checkModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3 id="checkModalTitle">新增核對事項</h3>
-        <button class="btn-close" data-modal="checkModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <form id="checkForm">
-          <input type="hidden" id="checkId">
-          
-          <div class="form-group">
-            <label for="checkTitle">事項名称</label>
-            <input type="text" id="checkTitle" class="input-text" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="checkUser">負責人/部门</label>
-            <input type="text" id="checkUser" class="input-text" required>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group">
-              <label for="checkPeriodValue">週期數值</label>
-              <input type="number" id="checkPeriodValue" class="input-text" min="1" value="1" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="checkPeriodType">週期类型</label>
-              <select id="checkPeriodType" class="input-select">
-                <option value="daily">日</option>
-                <option value="weekly">周</option>
-                <option value="monthly">月</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" data-modal="checkModal">取消</button>
-            <button type="submit" class="btn-primary">儲存</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- 匯出选項模态框 -->
-  <div id="exportModal" class="modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h3>匯出 PDF</h3>
-        <button class="btn-close" data-modal="exportModal">&times;</button>
-      </div>
-      <div class="modal-body">
-        <div class="export-options">
-          <button class="export-option-btn" data-export="all">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-            </svg>
-            <span>全部匯出</span>
-          </button>
-          <button class="export-option-btn" data-export="calendar">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="16" y1="2" x2="16" y2="6"></line>
-              <line x1="8" y1="2" x2="8" y2="6"></line>
-              <line x1="3" y1="10" x2="21" y2="10"></line>
-            </svg>
-            <span>月曆檢視</span>
-          </button>
-          <button class="export-option-btn" data-export="work">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-            <span>工作紀錄</span>
-          </button>
-          <button class="export-option-btn" data-export="todos">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 11 12 14 22 4"></polyline>
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-            </svg>
-            <span>代辦事項</span>
-          </button>
-          <button class="export-option-btn" data-export="checks">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
-            <span>核對事項</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast 通知 -->
-  <div id="toast" class="toast"></div>
-
-  <!-- 加载第三方库 -->
-  <script src="./libs/dexie.min.js"></script>
-  <script src="./libs/flatpickr.min.js"></script>
-  <script src="./libs/sortable.min.js"></script>
-  <script src="./libs/html2canvas.min.js"></script>
-  <script src="./libs/jspdf.umd.min.js"></script>
-  <script src="./libs/browser-image-compression.js"></script>
-  
-  <!-- 应用脚本 -->
-  <script src="./db.js"></script>
-  <script src="./app.js"></script>
-
-    <!-- 浮動新增按鈕 (FAB) -->
-    <div class="fab-container" id="fabContainer">
-        <div class="fab-menu">
-            <div class="fab-item">
-                <span class="fab-label">新增工作紀錄</span>
-                <button class="fab-work" onclick="openWorkModal(); closeFAB();" title="新增工作紀錄">📝</button>
-            </div>
-            <div class="fab-item">
-                <span class="fab-label">新增代辦事項</span>
-                <button class="fab-todo" onclick="openTodoModal(); closeFAB();" title="新增代辦事項">✓</button>
-            </div>
-            <div class="fab-item">
-                <span class="fab-label">新增核對清單</span>
-                <button class="fab-check" onclick="openCheckModal(); closeFAB();" title="新增核對清單">☑</button>
+            <div class="stat-card">
+                <div class="stat-number" id="completionRate">0%</div>
+                <div class="stat-label">完成率</div>
             </div>
         </div>
-        <button class="fab-main" onclick="toggleFAB()">+</button>
+
+        <div class="filter-section">
+            <div class="search-bar">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="搜尋任務... (Ctrl+F)" 
+                    oninput="app.filterTodos()"
+                >
+            </div>
+            <div class="filter-options">
+                <select id="filterStatus" onchange="app.filterTodos()">
+                    <option value="all">所有狀態</option>
+                    <option value="todo">待辦</option>
+                    <option value="in-progress">進行中</option>
+                    <option value="completed">已完成</option>
+                </select>
+                <select id="filterPriority" onchange="app.filterTodos()">
+                    <option value="all">所有優先度</option>
+                    <option value="high">高</option>
+                    <option value="medium">中</option>
+                    <option value="low">低</option>
+                </select>
+                <select id="filterCategory" onchange="app.filterTodos()">
+                    <option value="all">所有分類</option>
+                </select>
+                <button onclick="app.clearFilters()">清除篩選</button>
+            </div>
+        </div>
+
+        <div class="bulk-actions">
+            <button class="btn-select-all" onclick="app.toggleSelectAll()">
+                <span id="selectAllText">全選</span>
+            </button>
+            <button class="btn-bulk-complete" onclick="app.bulkComplete()">批量完成</button>
+            <button class="btn-bulk-delete" onclick="app.bulkDelete()">批量刪除</button>
+            <span id="selectedCount" style="margin-left: auto; color: var(--text-secondary);"></span>
+        </div>
+
+        <div class="export-section">
+            <button class="btn-export" onclick="app.exportData('json')">📥 JSON</button>
+            <button class="btn-export" onclick="app.exportData('csv')">📊 CSV</button>
+            <button class="btn-export" onclick="app.exportData('excel')">📗 Excel</button>
+            <button class="btn-export" onclick="app.exportData('markdown')">📝 Markdown</button>
+            <button class="btn-export" onclick="app.exportAllUsers()">📦 總覽匯出</button>
+            <button class="btn-import" onclick="document.getElementById('importFile').click()">📤 匯入</button>
+            <input type="file" id="importFile" style="display:none" accept=".json" onchange="app.importData(event)">
+        </div>
+
+        <div class="add-form">
+            <div class="form-grid">
+                <input type="text" id="todoTitle" placeholder="任務標題" />
+                <input type="text" id="todoCategory" placeholder="分類 (工作/個人/學習)" />
+                <select id="todoPriority">
+                    <option value="medium">優先度: 中</option>
+                    <option value="high">優先度: 高</option>
+                    <option value="low">優先度: 低</option>
+                </select>
+                <select id="todoStatus">
+                    <option value="todo">待辦</option>
+                    <option value="in-progress">進行中</option>
+                    <option value="completed">已完成</option>
+                </select>
+                <input type="date" id="todoDueDate" />
+                <input type="number" id="todoProgress" placeholder="進度 (%)" min="0" max="100" />
+                <input type="text" id="todoTags" placeholder="標籤 (逗號分隔)" />
+                <textarea id="todoDescription" placeholder="描述"></textarea>
+            </div>
+            <button class="btn-add" onclick="app.addTodo()">+ 新增任務</button>
+        </div>
+
+        <div class="todo-list" id="todoList"></div>
     </div>
 
     <script>
-        function toggleFAB() {
-            document.getElementById('fabContainer').classList.toggle('active');
-        }
+// ==================== Phase 4: 完整 JavaScript ====================
+// 功能: 搜尋/篩選、批量操作、釘選、分類、多用戶、XSS防護、UX強化
 
-        function closeFAB() {
-            document.getElementById('fabContainer').classList.remove('active');
-        }
+(function() {
+    'use strict';
 
-        // 點擊外部關閉 FAB
-        document.addEventListener('click', function(e) {
-            const fab = document.getElementById('fabContainer');
-            if (fab && !fab.contains(e.target)) {
-                fab.classList.remove('active');
+    // ==================== XSS 防護工具 ====================
+    const Security = {
+        // HTML escape 防止 XSS
+        escapeHTML(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        },
+
+        // 清理 URL（防止 javascript: 協議）
+        sanitizeURL(url) {
+            if (!url) return '';
+            const lower = url.toLowerCase().trim();
+            if (lower.startsWith('javascript:') || 
+                lower.startsWith('data:') || 
+                lower.startsWith('vbscript:')) {
+                return '';
             }
-        });
+            return url;
+        },
 
-        // 這些函數需要對應到你的實際模態框開啟函數
-        function openWorkModal() {
-            // 觸發工作紀錄的新增按鈕
-            const addBtn = document.querySelector('.work-logs button');
-            if (addBtn) addBtn.click();
-        }
+        // 驗證日期格式
+        validateDate(dateStr) {
+            if (!dateStr) return null;
+            const date = new Date(dateStr);
+            return isNaN(date.getTime()) ? null : dateStr;
+        },
 
-        function openTodoModal() {
-            // 觸發代辦事項的新增按鈕
-            const addBtn = document.querySelector('.todos button');
-            if (addBtn) addBtn.click();
-        }
+        // 驗證數字範圍
+        validateNumber(num, min = 0, max = 100) {
+            const n = parseInt(num, 10);
+            if (isNaN(n)) return min;
+            return Math.max(min, Math.min(max, n));
+        },
 
-        function openCheckModal() {
-            // 觸發核對清單的新增按鈕
-            const addBtn = document.querySelector('.checklists button');
-            if (addBtn) addBtn.click();
+        // 清理標籤輸入
+        sanitizeTags(tagsStr) {
+            if (!tagsStr) return [];
+            return tagsStr
+                .split(',')
+                .map(tag => this.escapeHTML(tag.trim()))
+                .filter(tag => tag.length > 0 && tag.length < 50)
+                .slice(0, 10); // 最多 10 個標籤
         }
+    };
+
+    // ==================== 應用程式主體 ====================
+    const App = {
+        // 當前用戶
+        currentUser: 'default',
+        
+        // 所有用戶資料
+        allUserData: {},
+        
+        // 當前任務列表
+        todos: [],
+        
+        // 選中的任務
+        selectedTodos: new Set(),
+        
+        // 初始化
+        init() {
+            this.loadAllUsers();
+            this.loadUserData();
+            this.updateUserSelect();
+            this.loadDarkMode();
+            this.setupKeyboardShortcuts();
+            this.render();
+            this.updateDashboard();
+        },
+
+        // ==================== 用戶管理 ====================
+        loadAllUsers() {
+            try {
+                const data = localStorage.getItem('offlineWork_users');
+                this.allUserData = data ? JSON.parse(data) : { default: [] };
+            } catch (e) {
+                this.allUserData = { default: [] };
+            }
+        },
+
+        saveAllUsers() {
+            try {
+                localStorage.setItem('offlineWork_users', JSON.stringify(this.allUserData));
+            } catch (e) {
+                this.showNotification('儲存失敗', 'error');
+            }
+        },
+
+        loadUserData() {
+            this.todos = this.allUserData[this.currentUser] || [];
+        },
+
+        saveUserData() {
+            this.allUserData[this.currentUser] = this.todos;
+            this.saveAllUsers();
+        },
+
+        switchUser(username) {
+            this.saveUserData();
+            this.currentUser = username;
+            this.loadUserData();
+            this.selectedTodos.clear();
+            this.render();
+            this.updateDashboard();
+            this.updateFilterOptions();
+            this.showNotification(`切換到用戶: ${username}`, 'success');
+        },
+
+        addNewUser() {
+            const username = prompt('輸入新用戶名稱:');
+            if (!username) return;
+            
+            const sanitized = Security.escapeHTML(username.trim());
+            if (sanitized.length === 0 || sanitized.length > 30) {
+                this.showNotification('用戶名稱長度需在 1-30 字元', 'error');
+                return;
+            }
+
+            if (this.allUserData[sanitized]) {
+                this.showNotification('用戶已存在', 'error');
+                return;
+            }
+
+            this.allUserData[sanitized] = [];
+            this.saveAllUsers();
+            this.updateUserSelect();
+            this.switchUser(sanitized);
+        },
+
+        updateUserSelect() {
+            const select = document.getElementById('userSelect');
+            if (!select) return;
+
+            select.innerHTML = '';
+            Object.keys(this.allUserData).sort().forEach(user => {
+                const option = document.createElement('option');
+                option.value = user;
+                option.textContent = user;
+                if (user === this.currentUser) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        },
+
+        // ==================== 新增任務 ====================
+        addTodo() {
+            const title = document.getElementById('todoTitle').value.trim();
+            if (!title) {
+                this.showNotification('請輸入任務標題', 'error');
+                return;
+            }
+
+            const todo = {
+                id: Date.now() + Math.random(),
+                title: Security.escapeHTML(title),
+                description: Security.escapeHTML(document.getElementById('todoDescription').value.trim()),
+                category: Security.escapeHTML(document.getElementById('todoCategory').value.trim()) || '未分類',
+                status: document.getElementById('todoStatus').value,
+                priority: document.getElementById('todoPriority').value,
+                dueDate: Security.validateDate(document.getElementById('todoDueDate').value),
+                progress: Security.validateNumber(document.getElementById('todoProgress').value, 0, 100),
+                tags: Security.sanitizeTags(document.getElementById('todoTags').value),
+                pinned: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+
+            this.todos.unshift(todo);
+            this.saveUserData();
+            this.clearForm();
+            this.render();
+            this.updateDashboard();
+            this.updateFilterOptions();
+            this.showNotification('任務已新增', 'success');
+        },
+
+        clearForm() {
+            document.getElementById('todoTitle').value = '';
+            document.getElementById('todoDescription').value = '';
+            document.getElementById('todoCategory').value = '';
+            document.getElementById('todoStatus').value = 'todo';
+            document.getElementById('todoPriority').value = 'medium';
+            document.getElementById('todoDueDate').value = '';
+            document.getElementById('todoProgress').value = '';
+            document.getElementById('todoTags').value = '';
+        },
+
+        // ==================== 釘選功能 ====================
+        togglePin(id) {
+            const todo = this.todos.find(t => t.id === id);
+            if (todo) {
+                todo.pinned = !todo.pinned;
+                todo.updatedAt = new Date().toISOString();
+                this.saveUserData();
+                this.render();
+            }
+        },
+
+        // ==================== 刪除任務 ====================
+        deleteTodo(id) {
+            this.confirmAction('確定要刪除這個任務？', () => {
+                this.todos = this.todos.filter(t => t.id !== id);
+                this.selectedTodos.delete(id);
+                this.saveUserData();
+                this.render();
+                this.updateDashboard();
+                this.showNotification('任務已刪除', 'success');
+            });
+        },
+
+        // ==================== 更新任務 ====================
+        updateTodoStatus(id, status) {
+            const todo = this.todos.find(t => t.id === id);
+            if (todo) {
+                todo.status = status;
+                if (status === 'completed') {
+                    todo.progress = 100;
+                }
+                todo.updatedAt = new Date().toISOString();
+                this.saveUserData();
+                this.render();
+                this.updateDashboard();
+            }
+        },
+
+        // ==================== 批量操作 ====================
+        toggleSelectAll() {
+            const filtered = this.getFilteredTodos();
+            if (this.selectedTodos.size === filtered.length) {
+                this.selectedTodos.clear();
+            } else {
+                filtered.forEach(todo => this.selectedTodos.add(todo.id));
+            }
+            this.render();
+        },
+
+        bulkComplete() {
+            if (this.selectedTodos.size === 0) {
+                this.showNotification('請先選擇任務', 'error');
+                return;
+            }
+
+            this.todos.forEach(todo => {
+                if (this.selectedTodos.has(todo.id)) {
+                    todo.status = 'completed';
+                    todo.progress = 100;
+                    todo.updatedAt = new Date().toISOString();
+                }
+            });
+
+            this.selectedTodos.clear();
+            this.saveUserData();
+            this.render();
+            this.updateDashboard();
+            this.showNotification('批量完成成功', 'success');
+        },
+
+        bulkDelete() {
+            if (this.selectedTodos.size === 0) {
+                this.showNotification('請先選擇任務', 'error');
+                return;
+            }
+
+            this.confirmAction(`確定要刪除 ${this.selectedTodos.size} 個任務？`, () => {
+                this.todos = this.todos.filter(t => !this.selectedTodos.has(t.id));
+                this.selectedTodos.clear();
+                this.saveUserData();
+                this.render();
+                this.updateDashboard();
+                this.showNotification('批量刪除成功', 'success');
+            });
+        },
+
+        // ==================== 搜尋/篩選 ====================
+        filterTodos() {
+            this.render();
+        },
+
+        getFilteredTodos() {
+            let filtered = [...this.todos];
+
+            // 搜尋關鍵字
+            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
+            if (searchTerm) {
+                filtered = filtered.filter(todo => 
+                    todo.title.toLowerCase().includes(searchTerm) ||
+                    todo.description.toLowerCase().includes(searchTerm) ||
+                    todo.category.toLowerCase().includes(searchTerm) ||
+                    todo.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // 狀態篩選
+            const statusFilter = document.getElementById('filterStatus')?.value;
+            if (statusFilter && statusFilter !== 'all') {
+                filtered = filtered.filter(todo => todo.status === statusFilter);
+            }
+
+            // 優先度篩選
+            const priorityFilter = document.getElementById('filterPriority')?.value;
+            if (priorityFilter && priorityFilter !== 'all') {
+                filtered = filtered.filter(todo => todo.priority === priorityFilter);
+            }
+
+            // 分類篩選
+            const categoryFilter = document.getElementById('filterCategory')?.value;
+            if (categoryFilter && categoryFilter !== 'all') {
+                filtered = filtered.filter(todo => todo.category === categoryFilter);
+            }
+
+            // 排序: 釘選優先，然後依建立時間
+            filtered.sort((a, b) => {
+                if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
+                return new Date(b.createdAt) - new Date(a.createdAt);
+            });
+
+            return filtered;
+        },
+
+        clearFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('filterStatus').value = 'all';
+            document.getElementById('filterPriority').value = 'all';
+            document.getElementById('filterCategory').value = 'all';
+            this.render();
+        },
+
+        updateFilterOptions() {
+            const categorySelect = document.getElementById('filterCategory');
+            if (!categorySelect) return;
+
+            const categories = new Set();
+            this.todos.forEach(todo => categories.add(todo.category));
+
+            const currentValue = categorySelect.value;
+            categorySelect.innerHTML = '<option value="all">所有分類</option>';
+            
+            Array.from(categories).sort().forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categorySelect.appendChild(option);
+            });
+
+            if (categories.has(currentValue)) {
+                categorySelect.value = currentValue;
+            }
+        },
+
+        // ==================== 渲染介面 ====================
+        render() {
+            const list = document.getElementById('todoList');
+            if (!list) return;
+
+            const filtered = this.getFilteredTodos();
+
+            if (filtered.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-secondary);">目前沒有任務</div>';
+                this.updateSelectedCount();
+                return;
+            }
+
+            list.innerHTML = filtered.map(todo => this.renderTodoItem(todo)).join('');
+            this.updateSelectedCount();
+        },
+
+        renderTodoItem(todo) {
+            const isSelected = this.selectedTodos.has(todo.id);
+            const pinnedClass = todo.pinned ? 'pinned' : '';
+            const completedClass = todo.status === 'completed' ? 'completed' : '';
+            
+            const priorityClass = `priority-${todo.priority}`;
+            const statusClass = `status-${todo.status}`;
+
+            const statusText = {
+                'todo': '待辦',
+                'in-progress': '進行中',
+                'completed': '已完成'
+            }[todo.status] || todo.status;
+
+            const priorityText = {
+                'high': '高',
+                'medium': '中',
+                'low': '低'
+            }[todo.priority] || todo.priority;
+
+            const dueDateHTML = todo.dueDate ? 
+                `<div class="meta-item">📅 ${todo.dueDate}</div>` : '';
+
+            const tagsHTML = todo.tags.length > 0 ?
+                todo.tags.map(tag => `<span class="category-tag">${tag}</span>`).join('') : '';
+
+            return `
+                <div class="todo-item ${pinnedClass} ${completedClass}">
+                    <div class="todo-header">
+                        <input 
+                            type="checkbox" 
+                            class="todo-checkbox" 
+                            ${isSelected ? 'checked' : ''}
+                            onchange="app.toggleSelect(${todo.id})"
+                        />
+                        <div class="todo-title">${todo.title}</div>
+                        <button 
+                            class="pin-btn ${todo.pinned ? 'active' : ''}" 
+                            onclick="app.togglePin(${todo.id})"
+                            title="${todo.pinned ? '取消釘選' : '釘選'}"
+                        >
+                            ${todo.pinned ? '📌' : '📍'}
+                        </button>
+                    </div>
+                    
+                    <div class="todo-meta">
+                        <div class="meta-item">
+                            <span class="category-tag">${todo.category}</span>
+                        </div>
+                        <div class="meta-item ${statusClass}">狀態: ${statusText}</div>
+                        <div class="meta-item ${priorityClass}">優先度: ${priorityText}</div>
+                        <div class="meta-item">進度: ${todo.progress}%</div>
+                        ${dueDateHTML}
+                    </div>
+
+                    ${todo.description ? `<div style="margin: 10px 0; color: var(--text-secondary);">${todo.description}</div>` : ''}
+                    
+                    ${tagsHTML ? `<div style="margin: 10px 0;">${tagsHTML}</div>` : ''}
+
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button onclick="app.updateTodoStatus(${todo.id}, 'todo')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--text-secondary); color: white; cursor: pointer;">待辦</button>
+                        <button onclick="app.updateTodoStatus(${todo.id}, 'in-progress')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--accent); color: white; cursor: pointer;">進行中</button>
+                        <button onclick="app.updateTodoStatus(${todo.id}, 'completed')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--success); color: white; cursor: pointer;">完成</button>
+                        <button onclick="app.deleteTodo(${todo.id})" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--danger); color: white; cursor: pointer; margin-left: auto;">刪除</button>
+                    </div>
+                </div>
+            `;
+        },
+
+        toggleSelect(id) {
+            if (this.selectedTodos.has(id)) {
+                this.selectedTodos.delete(id);
+            } else {
+                this.selectedTodos.add(id);
+            }
+            this.updateSelectedCount();
+        },
+
+        updateSelectedCount() {
+            const countElem = document.getElementById('selectedCount');
+            const selectAllText = document.getElementById('selectAllText');
+            
+            if (countElem) {
+                if (this.selectedTodos.size > 0) {
+                    countElem.textContent = `已選擇 ${this.selectedTodos.size} 個`;
+                } else {
+                    countElem.textContent = '';
+                }
+            }
+
+            if (selectAllText) {
+                const filtered = this.getFilteredTodos();
+                selectAllText.textContent = this.selectedTodos.size === filtered.length ? '取消全選' : '全選';
+            }
+        },
+
+        // ==================== 統計儀表板 ====================
+        updateDashboard() {
+            const total = this.todos.length;
+            const completed = this.todos.filter(t => t.status === 'completed').length;
+            const inProgress = this.todos.filter(t => t.status === 'in-progress').length;
+            const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('completedCount').textContent = completed;
+            document.getElementById('inProgressCount').textContent = inProgress;
+            document.getElementById('completionRate').textContent = rate + '%';
+        },
+
+        // ==================== 匯出功能 ====================
+        exportData(format) {
+            if (this.todos.length === 0) {
+                this.showNotification('沒有資料可匯出', 'error');
+                return;
+            }
+
+            let content, filename, type;
+
+            switch (format) {
+                case 'json':
+                    content = JSON.stringify(this.todos, null, 2);
+                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.json`;
+                    type = 'application/json';
+                    break;
+
+                case 'csv':
+                    content = this.toCSV(this.todos);
+                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.csv`;
+                    type = 'text/csv';
+                    break;
+
+                case 'excel':
+                    this.exportExcel(this.todos, `todos_${this.currentUser}_${this.getTimestamp()}.xlsx`);
+                    return;
+
+                case 'markdown':
+                    content = this.toMarkdown(this.todos);
+                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.md`;
+                    type = 'text/markdown';
+                    break;
+            }
+
+            this.downloadFile(content, filename, type);
+            this.showNotification('匯出成功', 'success');
+        },
+
+        exportAllUsers() {
+            const allData = {};
+            Object.keys(this.allUserData).forEach(user => {
+                allData[user] = {
+                    todos: this.allUserData[user],
+                    stats: {
+                        total: this.allUserData[user].length,
+                        completed: this.allUserData[user].filter(t => t.status === 'completed').length
+                    }
+                };
+            });
+
+            const content = JSON.stringify(allData, null, 2);
+            const filename = `all_users_${this.getTimestamp()}.json`;
+            this.downloadFile(content, filename, 'application/json');
+            this.showNotification('總覽匯出成功', 'success');
+        },
+
+        toCSV(todos) {
+            const headers = ['標題', '描述', '分類', '狀態', '優先度', '進度', '截止日期', '標籤', '建立時間'];
+            const rows = todos.map(todo => [
+                todo.title,
+                todo.description,
+                todo.category,
+                todo.status,
+                todo.priority,
+                todo.progress,
+                todo.dueDate || '',
+                todo.tags.join(';'),
+                todo.createdAt
+            ]);
+
+            return [headers, ...rows].map(row => 
+                row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+            ).join('\n');
+        },
+
+        toMarkdown(todos) {
+            let md = `# 任務清單 - ${this.currentUser}\n\n`;
+            md += `匯出時間: ${new Date().toLocaleString('zh-TW')}\n\n`;
+            
+            const groups = {};
+            todos.forEach(todo => {
+                if (!groups[todo.category]) groups[todo.category] = [];
+                groups[todo.category].push(todo);
+            });
+
+            Object.keys(groups).sort().forEach(category => {
+                md += `## ${category}\n\n`;
+                groups[category].forEach(todo => {
+                    const checkbox = todo.status === 'completed' ? '[x]' : '[ ]';
+                    md += `- ${checkbox} **${todo.title}**\n`;
+                    if (todo.description) md += `  - ${todo.description}\n`;
+                    md += `  - 優先度: ${todo.priority} | 進度: ${todo.progress}%\n`;
+                    if (todo.dueDate) md += `  - 截止: ${todo.dueDate}\n`;
+                    md += `\n`;
+                });
+                md += `\n`;
+            });
+
+            return md;
+        },
+
+        exportExcel(todos, filename) {
+            // 使用 SheetJS (已在 HTML 中引入)
+            if (typeof XLSX === 'undefined') {
+                this.showNotification('Excel 功能未載入', 'error');
+                return;
+            }
+
+            const data = todos.map(todo => ({
+                '標題': todo.title,
+                '描述': todo.description,
+                '分類': todo.category,
+                '狀態': todo.status,
+                '優先度': todo.priority,
+                '進度': todo.progress,
+                '截止日期': todo.dueDate || '',
+                '標籤': todo.tags.join(', '),
+                '建立時間': new Date(todo.createdAt).toLocaleString('zh-TW')
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
+            XLSX.writeFile(wb, filename);
+        },
+
+        // ==================== 匯入功能 ====================
+        importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (!Array.isArray(imported)) {
+                        this.showNotification('格式錯誤', 'error');
+                        return;
+                    }
+
+                    // 清理並驗證每個任務
+                    const cleaned = imported.map(todo => ({
+                        id: Date.now() + Math.random(),
+                        title: Security.escapeHTML(todo.title || '未命名'),
+                        description: Security.escapeHTML(todo.description || ''),
+                        category: Security.escapeHTML(todo.category || '未分類'),
+                        status: ['todo', 'in-progress', 'completed'].includes(todo.status) ? todo.status : 'todo',
+                        priority: ['high', 'medium', 'low'].includes(todo.priority) ? todo.priority : 'medium',
+                        dueDate: Security.validateDate(todo.dueDate),
+                        progress: Security.validateNumber(todo.progress, 0, 100),
+                        tags: Security.sanitizeTags(todo.tags ? todo.tags.join(',') : ''),
+                        pinned: false,
+                        createdAt: todo.createdAt || new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    }));
+
+                    this.todos = [...cleaned, ...this.todos];
+                    this.saveUserData();
+                    this.render();
+                    this.updateDashboard();
+                    this.updateFilterOptions();
+                    this.showNotification(`成功匯入 ${cleaned.length} 個任務`, 'success');
+                } catch (err) {
+                    this.showNotification('匯入失敗', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        },
+
+        // ==================== 深色模式 ====================
+        toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+            const isDark = document.body.classList.contains('dark-mode');
+            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
+            localStorage.setItem('darkMode', isDark);
+        },
+
+        loadDarkMode() {
+            const isDark = localStorage.getItem('darkMode') === 'true';
+            if (isDark) {
+                document.body.classList.add('dark-mode');
+                document.getElementById('themeIcon').textContent = '☀️';
+            }
+        },
+
+        // ==================== 鍵盤快捷鍵 ====================
+        setupKeyboardShortcuts() {
+            document.addEventListener('keydown', (e) => {
+                // Ctrl+F: 聚焦搜尋
+                if (e.ctrlKey && e.key === 'f') {
+                    e.preventDefault();
+                    document.getElementById('searchInput').focus();
+                }
+
+                // Ctrl+N: 聚焦新增
+                if (e.ctrlKey && e.key === 'n') {
+                    e.preventDefault();
+                    document.getElementById('todoTitle').focus();
+                }
+
+                // ESC: 清除選擇
+                if (e.key === 'Escape') {
+                    this.selectedTodos.clear();
+                    this.render();
+                }
+            });
+        },
+
+        // ==================== 工具函數 ====================
+        getTimestamp() {
+            return new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        },
+
+        downloadFile(content, filename, type) {
+            const blob = new Blob([content], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        },
+
+        showNotification(message, type = 'info') {
+            // 簡單通知（不用 console.log）
+            const colors = {
+                success: '#27ae60',
+                error: '#e74c3c',
+                info: '#4a90e2'
+            };
+
+            const notif = document.createElement('div');
+            notif.textContent = message;
+            notif.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                background: ${colors[type]};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+            `;
+
+            document.body.appendChild(notif);
+            setTimeout(() => {
+                notif.style.animation = 'fadeOut 0.3s ease';
+                setTimeout(() => notif.remove(), 300);
+            }, 3000);
+        },
+
+        confirmAction(message, callback) {
+            const overlay = document.createElement('div');
+            overlay.className = 'confirm-overlay';
+            overlay.onclick = () => {
+                overlay.remove();
+                dialog.remove();
+            };
+
+            const dialog = document.createElement('div');
+            dialog.className = 'confirm-dialog';
+            dialog.innerHTML = `
+                <div style="font-size: 18px; margin-bottom: 10px;">${message}</div>
+                <div class="confirm-buttons">
+                    <button class="btn-confirm-yes">確定</button>
+                    <button class="btn-confirm-no">取消</button>
+                </div>
+            `;
+
+            dialog.querySelector('.btn-confirm-yes').onclick = () => {
+                callback();
+                overlay.remove();
+                dialog.remove();
+            };
+
+            dialog.querySelector('.btn-confirm-no').onclick = () => {
+                overlay.remove();
+                dialog.remove();
+            };
+
+            document.body.appendChild(overlay);
+            document.body.appendChild(dialog);
+        }
+    };
+
+    // ==================== 全域暴露 ====================
+    window.app = App;
+
+    // ==================== 啟動應用 ====================
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => App.init());
+    } else {
+        App.init();
+    }
+
+})();
+
     </script>
-
-
-    <!-- 搜尋介面 -->
-    <div class="search-container" id="searchContainer">
-        <div class="search-box">
-            <div class="search-header">
-                <div class="search-title">🔍 全文搜尋</div>
-                <button class="search-close" onclick="closeSearch()">×</button>
-
-                <button onclick="document.getElementById('import-file').click()" class="btn-import" title="匯入 JSON 備份檔">
-                    📤 匯入
-                </button>
-                <button onclick="toggleTheme()" class="btn-theme" title="切換深色/淺色模式" id="theme-toggle">
-                    🌙
-                </button>
-
-            </div>
-            <!-- 隱藏的檔案輸入 -->
-            <input type="file" id="import-file" accept=".json" style="display: none;" onchange="importData(event)">
-
-            <div class="search-input-wrapper">
-                <input type="text" class="search-input" id="searchInput" placeholder="輸入關鍵字搜尋..." />
-            </div>
-            <div class="search-results" id="searchResults">
-                <div class="search-no-results">輸入關鍵字開始搜尋</div>
-            </div>
-        </div>
-    </div>
-
 </body>
-</html>    <!-- SheetJS for Excel export -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-
+</html>
