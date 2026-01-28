@@ -2707,3 +2707,57 @@ showNotification = function(message, type = 'info') {
     }, 3000);
 };
 
+
+// ==================== 深色模式 ====================
+/**
+ * 初始化主題
+ */
+function initTheme() {
+    // 從 localStorage 讀取主題偏好
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    // 優先使用已儲存的偏好，否則使用系統偏好
+    const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        updateThemeIcon('dark');
+    } else {
+        updateThemeIcon('light');
+    }
+}
+
+/**
+ * 切換主題
+ */
+function toggleTheme() {
+    const isDark = document.body.classList.toggle('dark-mode');
+    const theme = isDark ? 'dark' : 'light';
+
+    // 儲存偏好到 localStorage
+    localStorage.setItem('theme', theme);
+
+    // 更新圖示
+    updateThemeIcon(theme);
+
+    // 顯示通知
+    showNotification(`已切換到${isDark ? '深色' : '淺色'}模式`, 'info');
+}
+
+/**
+ * 更新主題圖示
+ */
+function updateThemeIcon(theme) {
+    const btn = document.getElementById('theme-toggle');
+    if (btn) {
+        btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        btn.title = theme === 'dark' ? '切換到淺色模式' : '切換到深色模式';
+    }
+}
+
+// 頁面載入時初始化主題
+document.addEventListener('DOMContentLoaded', function() {
+    initTheme();
+});
+
