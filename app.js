@@ -1032,62 +1032,152 @@ const Search = {
 
 // ==================== PDF匯出功能 ====================
 const PDFExport = {
-  async export(type) {
-    Utils.showToast('正在生成PDF...', 'info');
-
+  async exportPDF() {
     try {
+      Utils.showToast('正在生成 PDF，請稍候...');
+
+      // 取得所有資料
+      const workResult = await db.getWorkRecordsByMonth(
+        AppState.currentYear, 
+        AppState.currentMonth
+      );
+      const todoResult = await db.getTodosByMonth(
+        AppState.currentYear, 
+        AppState.currentMonth
+      );
+      const checkResult = await db.getCheckItemsByMonth(
+        AppState.currentYear, 
+        AppState.currentMonth
+      );
+
+      // 建立臨時容器用於渲染
+      const container = document.createElement('div');
+      container.style.cssText = `
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        width: 210mm;
+        background: white;
+        padding: 20mm;
+        font-family: Arial, "Microsoft YaHei", sans-serif;
+      `;
+
+      // 標題
+      const monthNames = ['1月', '2月', '3月', '4月', '5月', '6月', 
+                          '7月', '8月', '9月', '10月', '11月', '12月'];
+      container.innerHTML = `
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="margin: 0; color: #333;">工作管理報告</h1>
+          <h2 style="margin: 10px 0; color: #666;">
+            ${AppState.currentYear}年 ${monthNames[AppState.currentMonth]}
+          </h2>
+        </div>
+      `;
+
+      // 工作紀錄
+      if (workResult.success && workResult.records.length > 0) {
+        let workHtml = '<div style="page-break-inside: avoid; margin-bottom: 30px;"><h3 style="color: #3b82f6; border-bottom: 2px solid #3b82f6; padding-bottom: 10px;">📋 工作紀錄</h3>';
+        workResult.records.forEach(work => {
+          workHtml += `
+            <div style="page-break-inside: avoid; padding: 15px; margin: 10px 0; border-left: 3px solid #3b82f6; background: #eff6ff;">
+              <div style="font-weight: bold; margin-bottom: 5px;">${work.date}</div>
+              <div style="margin-bottom: 5px;">${work.content}</div>
+              ${work.tags ? `<div style="font-size: 0.9em; color: #666;">標籤: ${work.tags}</div>` : ''}
+            </div>
+          `;
+        });
+        workHtml += '</div>';
+        container.innerHTML += workHtml;
+      }
+
+      // 代辦事項
+      if (todoResult.success && todoResult.todos.length > 0) {
+        const priorityNames = { high: '高', medium: '中', low: '低' };
+        const priorityColors = { high: '#ef4444', medium: '#f97316', low: '#10b981' };
+
+        let todoHtml = '<div style="page-break-inside: avoid; margin-bottom: 30px;"><h3 style="color: #f97316; border-bottom: 2px solid #f97316; padding-bottom: 10px;">✓ 代辦事項</h3>';
+        todoResult.todos.forEach(todo => {
+          todoHtml += `
+            <div style="page-break-inside: avoid; padding: 15px; margin: 10px 0; border-left: 3px solid ${priorityColors[todo.priority]}; background: #fff7ed;">
+              <div style="font-weight: bold; margin-bottom: 5px;">${todo.title}</div>
+              <div style="font-size: 0.9em; color: #666;">
+                優先級: <span style="color: ${priorityColors[todo.priority]};">${priorityNames[todo.priority]}</span>
+                ${todo.dueDate ? ` | 到期: ${todo.dueDate}` : ''}
+                ${todo.completed ? ' | <span style="color: #10b981;">✓ 已完成</span>' : ''}
+              </div>
+            </div>
+          `;
+        });
+        todoHtml += '</div>';
+        container.innerHTML += todoHtml;
+      }
+
+      // 核對清單
+      if (checkResult.success && checkResult.items.length > 0) {
+        let checkHtml = '<div style="page-break-inside: avoid; margin-bottom: 30px;"><h3 style="color: #10b981; border-bottom: 2px solid #10b981; padding-bottom: 10px;">☑ 核對事項</h3>';
+        checkResult.items.forEach(item => {
+          checkHtml += `
+            <div style="page-break-inside: avoid; padding: 15px; margin: 10px 0; border-left: 3px solid #10b981; background: #f0fdf4;">
+              <div style="font-weight: bold; margin-bottom: 5px;">${item.name}</div>
+              <div style="font-size: 0.9em; color: #666;">
+                負責人: ${item.user}
+                ${item.nextDue ? ` | 下次檢查: ${item.nextDue}` : ''}
+              </div>
+            </div>
+          `;
+        });
+        checkHtml += '</div>';
+        container.innerHTML += checkHtml;
+      }
+
+      document.body.appendChild(container);
+
+      // 使用 html2canvas 轉換為圖片
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+
+      // 移除臨時容器
+      document.body.removeChild(container);
+
+      // 計算 PDF 尺寸 (A4)
+      const imgWidth = 210; // A4 寬度 mm
+      const pageHeight = 297; // A4 高度 mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      // 建立 PDF
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      let element;
-      let title = '';
 
-      switch (type) {
-        case 'all':
-          title = '全部数据匯出';
-          // 匯出所有內容需要分别截图拼接
-          await this.exportAll(pdf);
-          break;
-        case 'calendar':
-          title = '月曆檢視';
-          element = document.getElementById('calendarView');
-          break;
-        case 'work':
-          title = '工作紀錄';
-          element = document.getElementById('workList');
-          break;
-        case 'todos':
-          title = '代辦事項';
-          element = document.getElementById('todoList');
-          break;
-        case 'checks':
-          title = '核對事項';
-          element = document.getElementById('checkList');
-          break;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // 轉換 canvas 為圖片
+      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+      // 第一頁
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // 如果內容超過一頁，自動分頁但不切斷內容
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
       }
 
-      if (element) {
-        const canvas = await html2canvas(element, {
-          scale: 2,
-          useCORS: true,
-          logging: false
-        });
-        const imgData = canvas.toDataURL('image/png');
-        const imgWidth = 190;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.text(title, 105, 10, { align: 'center' });
-        pdf.addImage(imgData, 'PNG', 10, 20, imgWidth, imgHeight);
-      }
-
-      const filename = `${title}_${Utils.formatDate(new Date())}.pdf`;
+      // 儲存 PDF
+      const filename = `工作報告_${AppState.currentYear}_${AppState.currentMonth + 1}.pdf`;
       pdf.save(filename);
-      
-      Utils.showToast('PDF匯出成功', 'success');
-      Modal.close('exportModal');
+
+      Utils.showToast('PDF 匯出成功！');
     } catch (error) {
-      console.error('PDF匯出失败:', error);
-      Utils.showToast('PDF匯出失败', 'error');
+      console.error('PDF 匯出失敗:', error);
+      Utils.showToast('PDF 匯出失敗，請重試');
     }
   },
 
