@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="完全离线的工作管理应用">
+  <meta name="description" content="完全離線的工作管理应用">
   <meta name="theme-color" content="#13171f">
-  <title>离线工作管理系统</title>
+  <title>離線工作管理系統</title>
   
   <!-- 本地样式 -->
   <link rel="stylesheet" href="./libs/flatpickr.min.css">
@@ -20,22 +20,22 @@
     <!-- 导航栏 -->
     <nav class="navbar">
       <div class="nav-container">
-        <h1 class="app-title">离线工作管理</h1>
+        <h1 class="app-title">離線工作管理</h1>
         <div class="nav-actions">
-          <button id="searchBtn" class="btn-icon" title="搜索">
+          <button id="searchBtn" class="btn-icon" title="搜尋">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
               <path d="m21 21-4.35-4.35"></path>
             </svg>
           </button>
-          <button id="exportBtn" class="btn-icon" title="导出PDF">
+          <button id="exportBtn" class="btn-icon" title="匯出PDF">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </button>
-          <button id="settingsBtn" class="btn-icon" title="设置">
+          <button id="settingsBtn" class="btn-icon" title="設定">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="3"></circle>
               <path d="M12 1v6m0 6v6"></path>
@@ -46,17 +46,17 @@
       </div>
     </nav>
 
-    <!-- 标签页 -->
+    <!-- 標籤页 -->
     <div class="tabs">
-      <button class="tab-btn active" data-tab="calendar">月历视图</button>
-      <button class="tab-btn" data-tab="work">工作纪录</button>
-      <button class="tab-btn" data-tab="todos">代办事项</button>
-      <button class="tab-btn" data-tab="checks">核对事项</button>
+      <button class="tab-btn active" data-tab="calendar">月曆檢視</button>
+      <button class="tab-btn" data-tab="work">工作紀錄</button>
+      <button class="tab-btn" data-tab="todos">代辦事項</button>
+      <button class="tab-btn" data-tab="checks">核對事項</button>
     </div>
 
-    <!-- 主内容区 -->
+    <!-- 主內容区 -->
     <main class="main-content">
-      <!-- 月历视图 -->
+      <!-- 月曆檢視 -->
       <section id="calendarView" class="view active">
         <div class="view-header">
           <button id="prevMonth" class="btn-icon">
@@ -75,63 +75,63 @@
         <div id="dayDetails" class="day-details hidden"></div>
       </section>
 
-      <!-- 工作纪录视图 -->
+      <!-- 工作紀錄檢視 -->
       <section id="workView" class="view">
         <div class="view-header">
-          <h2>工作纪录</h2>
-          <button id="addWorkBtn" class="btn-primary">+ 新增纪录</button>
+          <h2>工作紀錄</h2>
+          <button id="addWorkBtn" class="btn-primary">+ 新增紀錄</button>
         </div>
         <div id="workList" class="item-list"></div>
       </section>
 
-      <!-- 代办事项视图 -->
+      <!-- 代辦事項檢視 -->
       <section id="todosView" class="view">
         <div class="view-header">
-          <h2>代办事项</h2>
+          <h2>代辦事項</h2>
           <div class="header-actions">
-            <button id="addTodoBtn" class="btn-primary">+ 新增代办</button>
+            <button id="addTodoBtn" class="btn-primary">+ 新增代辦</button>
             <button id="todoTemplateBtn" class="btn-secondary">模板</button>
           </div>
         </div>
         <div class="filter-tabs">
           <button class="filter-btn active" data-filter="all">全部</button>
-          <button class="filter-btn" data-filter="active">进行中</button>
+          <button class="filter-btn" data-filter="active">進行中</button>
           <button class="filter-btn" data-filter="completed">已完成</button>
           <button class="filter-btn" data-filter="high">高优先</button>
         </div>
         <div id="todoList" class="item-list sortable"></div>
       </section>
 
-      <!-- 核对事项视图 -->
+      <!-- 核對事項檢視 -->
       <section id="checksView" class="view">
         <div class="view-header">
-          <h2>每期核对事项</h2>
-          <button id="addCheckBtn" class="btn-primary">+ 新增核对</button>
+          <h2>每期核對事項</h2>
+          <button id="addCheckBtn" class="btn-primary">+ 新增核對</button>
         </div>
         <div id="checkList" class="item-list"></div>
       </section>
     </main>
   </div>
 
-  <!-- 搜索模态框 -->
+  <!-- 搜尋模态框 -->
   <div id="searchModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>搜索</h3>
+        <h3>搜尋</h3>
         <button class="btn-close" data-modal="searchModal">&times;</button>
       </div>
       <div class="modal-body">
-        <input type="text" id="searchInput" class="input-text" placeholder="输入关键字搜索...">
+        <input type="text" id="searchInput" class="input-text" placeholder="輸入關鍵字搜尋...">
         <div id="searchResults" class="search-results"></div>
       </div>
     </div>
   </div>
 
-  <!-- 工作纪录表单模态框 -->
+  <!-- 工作紀錄表单模态框 -->
   <div id="workModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="workModalTitle">新增工作纪录</h3>
+        <h3 id="workModalTitle">新增工作紀錄</h3>
         <button class="btn-close" data-modal="workModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -144,35 +144,35 @@
           </div>
           
           <div class="form-group">
-            <label for="workContent">工作内容</label>
+            <label for="workContent">工作內容</label>
             <textarea id="workContent" class="input-textarea" rows="6" required></textarea>
           </div>
           
           <div class="form-group">
-            <label for="workImages">图片（可选）</label>
+            <label for="workImages">圖片（可選）</label>
             <input type="file" id="workImages" accept="image/*" multiple class="input-file">
             <div id="imagePreview" class="image-preview"></div>
           </div>
           
           <div class="form-group">
-            <label for="workTags">标签（用逗号分隔）</label>
-            <input type="text" id="workTags" class="input-text" placeholder="例如: 会议, 开发, 测试">
+            <label for="workTags">標籤（用逗号分隔）</label>
+            <input type="text" id="workTags" class="input-text" placeholder="例如: 會議, 開發, 測試">
           </div>
           
           <div class="form-actions">
             <button type="button" class="btn-secondary" data-modal="workModal">取消</button>
-            <button type="submit" class="btn-primary">保存</button>
+            <button type="submit" class="btn-primary">儲存</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 代办事项表单模态框 -->
+  <!-- 代辦事項表单模态框 -->
   <div id="todoModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="todoModalTitle">新增代办事项</h3>
+        <h3 id="todoModalTitle">新增代辦事項</h3>
         <button class="btn-close" data-modal="todoModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -180,12 +180,12 @@
           <input type="hidden" id="todoId">
           
           <div class="form-group">
-            <label for="todoTitle">任务标题</label>
+            <label for="todoTitle">任務標題</label>
             <input type="text" id="todoTitle" class="input-text" required>
           </div>
           
           <div class="form-group">
-            <label for="todoPriority">优先级</label>
+            <label for="todoPriority">優先級</label>
             <select id="todoPriority" class="input-select">
               <option value="low">低</option>
               <option value="medium" selected>中</option>
@@ -194,24 +194,24 @@
           </div>
           
           <div class="form-group">
-            <label for="todoDueDate">预计完成日</label>
+            <label for="todoDueDate">預計完成日</label>
             <input type="text" id="todoDueDate" class="input-text datepicker">
           </div>
           
           <div class="form-actions">
             <button type="button" class="btn-secondary" data-modal="todoModal">取消</button>
-            <button type="submit" class="btn-primary">保存</button>
+            <button type="submit" class="btn-primary">儲存</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 核对事项表单模态框 -->
+  <!-- 核對事項表单模态框 -->
   <div id="checkModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="checkModalTitle">新增核对事项</h3>
+        <h3 id="checkModalTitle">新增核對事項</h3>
         <button class="btn-close" data-modal="checkModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -219,23 +219,23 @@
           <input type="hidden" id="checkId">
           
           <div class="form-group">
-            <label for="checkTitle">事项名称</label>
+            <label for="checkTitle">事項名称</label>
             <input type="text" id="checkTitle" class="input-text" required>
           </div>
           
           <div class="form-group">
-            <label for="checkUser">负责人/部门</label>
+            <label for="checkUser">負責人/部门</label>
             <input type="text" id="checkUser" class="input-text" required>
           </div>
           
           <div class="form-row">
             <div class="form-group">
-              <label for="checkPeriodValue">周期数值</label>
+              <label for="checkPeriodValue">週期數值</label>
               <input type="number" id="checkPeriodValue" class="input-text" min="1" value="1" required>
             </div>
             
             <div class="form-group">
-              <label for="checkPeriodType">周期类型</label>
+              <label for="checkPeriodType">週期类型</label>
               <select id="checkPeriodType" class="input-select">
                 <option value="daily">日</option>
                 <option value="weekly">周</option>
@@ -246,18 +246,18 @@
           
           <div class="form-actions">
             <button type="button" class="btn-secondary" data-modal="checkModal">取消</button>
-            <button type="submit" class="btn-primary">保存</button>
+            <button type="submit" class="btn-primary">儲存</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- 导出选项模态框 -->
+  <!-- 匯出选項模态框 -->
   <div id="exportModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>导出 PDF</h3>
+        <h3>匯出 PDF</h3>
         <button class="btn-close" data-modal="exportModal">&times;</button>
       </div>
       <div class="modal-body">
@@ -267,7 +267,7 @@
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
               <polyline points="14 2 14 8 20 8"></polyline>
             </svg>
-            <span>全部导出</span>
+            <span>全部匯出</span>
           </button>
           <button class="export-option-btn" data-export="calendar">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -276,7 +276,7 @@
               <line x1="8" y1="2" x2="8" y2="6"></line>
               <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
-            <span>月历视图</span>
+            <span>月曆檢視</span>
           </button>
           <button class="export-option-btn" data-export="work">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -286,20 +286,20 @@
               <line x1="16" y1="17" x2="8" y2="17"></line>
               <polyline points="10 9 9 9 8 9"></polyline>
             </svg>
-            <span>工作纪录</span>
+            <span>工作紀錄</span>
           </button>
           <button class="export-option-btn" data-export="todos">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="9 11 12 14 22 4"></polyline>
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
-            <span>代办事项</span>
+            <span>代辦事項</span>
           </button>
           <button class="export-option-btn" data-export="checks">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
-            <span>核对事项</span>
+            <span>核對事項</span>
           </button>
         </div>
       </div>
