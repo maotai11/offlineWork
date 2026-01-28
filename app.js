@@ -2997,3 +2997,28 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(loadSortPreferences, 100);
 });
 
+
+    // 匯出 Excel
+    exportExcel(filename) {
+        // 使用 SheetJS 生成 Excel
+        const data = this.todos.map(todo => ({
+            '標題': todo.text,
+            '狀態': todo.completed ? '✓ 完成' : '○ 未完成',
+            '優先度': todo.priority,
+            '標籤': todo.tags.join(', '),
+            '截止日期': todo.dueDate || '',
+            '進度': `${todo.progress}%`,
+            '建立時間': new Date(todo.createdAt).toLocaleString('zh-TW'),
+            '完成時間': todo.completedAt ? new Date(todo.completedAt).toLocaleString('zh-TW') : ''
+        }));
+
+        // 創建工作簿
+        const ws = XLSX.utils.json_to_sheet(data);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "待辦事項");
+
+        // 下載
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+        this.showNotification('Excel 匯出成功！', 'success');
+    }
+
