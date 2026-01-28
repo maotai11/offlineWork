@@ -2877,3 +2877,123 @@ document.addEventListener('DOMContentLoaded', function() {
     updateDashboard();
 });
 
+
+// ==================== 排序功能 ====================
+/**
+ * 排序項目
+ * @param {string} type - 'projects', 'tasks', 或 'goals'
+ * @param {string} sortBy - 排序方式
+ */
+function sortItems(type, sortBy) {
+    let items = state[type];
+
+    switch (sortBy) {
+        case 'newest':
+            items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            break;
+
+        case 'oldest':
+            items.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+            break;
+
+        case 'updated':
+            items.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+            break;
+
+        case 'priority-high':
+            items.sort((a, b) => {
+                const priorities = { 'high': 3, 'medium': 2, 'low': 1 };
+                return (priorities[b.priority] || 0) - (priorities[a.priority] || 0);
+            });
+            break;
+
+        case 'priority-low':
+            items.sort((a, b) => {
+                const priorities = { 'high': 3, 'medium': 2, 'low': 1 };
+                return (priorities[a.priority] || 0) - (priorities[b.priority] || 0);
+            });
+            break;
+
+        case 'status':
+            items.sort((a, b) => {
+                const statusOrder = { 'in-progress': 1, 'todo': 2, 'on-hold': 3, 'completed': 4, 'cancelled': 5 };
+                return (statusOrder[a.status] || 99) - (statusOrder[b.status] || 99);
+            });
+            break;
+
+        case 'name':
+            items.sort((a, b) => {
+                const nameA = (a.name || a.title || '').toLowerCase();
+                const nameB = (b.name || b.title || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+            break;
+
+        case 'due-date':
+            // 任務專用：依截止日期排序
+            items.sort((a, b) => {
+                if (!a.dueDate) return 1;
+                if (!b.dueDate) return -1;
+                return new Date(a.dueDate) - new Date(b.dueDate);
+            });
+            break;
+
+        case 'target-date':
+            // 目標專用：依目標日期排序
+            items.sort((a, b) => {
+                if (!a.targetDate) return 1;
+                if (!b.targetDate) return -1;
+                return new Date(a.targetDate) - new Date(b.targetDate);
+            });
+            break;
+
+        case 'progress':
+            // 目標專用：依進度排序
+            items.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+            break;
+
+        default:
+            console.warn('Unknown sort method:', sortBy);
+            return;
+    }
+
+    // 重新渲染
+    if (type === 'projects') {
+        renderProjects();
+    } else if (type === 'tasks') {
+        renderTasks();
+    } else if (type === 'goals') {
+        renderGoals();
+    }
+
+    // 儲存排序偏好
+    localStorage.setItem(`sort_${type}`, sortBy);
+}
+
+/**
+ * 載入排序偏好
+ */
+function loadSortPreferences() {
+    // 讀取並套用排序偏好
+    const types = ['projects', 'tasks', 'goals'];
+
+    types.forEach(type => {
+        const savedSort = localStorage.getItem(`sort_${type}`);
+        if (savedSort) {
+            // 找到對應的 select 元素並設定值
+            const select = document.querySelector(`select[onchange*="${type}"]`);
+            if (select) {
+                select.value = savedSort;
+                // 套用排序（不觸發 onchange）
+                sortItems(type, savedSort);
+            }
+        }
+    });
+}
+
+// 頁面載入時載入排序偏好
+document.addEventListener('DOMContentLoaded', function() {
+    // 稍微延遲以確保資料已載入
+    setTimeout(loadSortPreferences, 100);
+});
+
