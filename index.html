@@ -186,6 +186,122 @@
             border: 1px solid var(--border-color);
         }
 
+    
+        /* 標籤系統樣式 */
+        .tag-input-container {
+            margin: 10px 0;
+        }
+
+        .tag-input-wrapper {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 5px;
+        }
+
+        .tag-input {
+            flex: 1;
+            padding: 5px 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .tag-add-btn {
+            padding: 5px 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .tag-add-btn:hover {
+            background: var(--primary-dark);
+        }
+
+        .tags-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 3px 10px;
+            background: var(--primary-color);
+            color: white;
+            border-radius: 12px;
+            font-size: 0.85rem;
+        }
+
+        .tag-remove {
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0 3px;
+        }
+
+        .tag-remove:hover {
+            color: #ff6b6b;
+        }
+
+        /* 標籤篩選器 */
+        .tag-filter-container {
+            margin: 10px 0;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 8px;
+        }
+
+        .tag-filter-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .tag-filter-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .tag-filter {
+            padding: 5px 12px;
+            background: #f0f0f0;
+            border: 2px solid transparent;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+
+        .tag-filter:hover {
+            background: #e0e0e0;
+        }
+
+        .tag-filter.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-dark);
+        }
+
+        /* 深色模式標籤 */
+        .dark-mode .tag-filter {
+            background: #444;
+            color: #eee;
+        }
+
+        .dark-mode .tag-filter:hover {
+            background: #555;
+        }
+
+        .dark-mode .tag-filter.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
     </style>
 
 </head>
