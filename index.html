@@ -442,6 +442,338 @@
             border-bottom: 1px solid #444;
         }
 
+    
+        /* ==================== UI 美化 ==================== */
+
+        /* 卡片陰影與懸停效果 */
+        .work-item, .schedule-item, .note-item {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .work-item:hover, .schedule-item:hover, .note-item:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: translateY(-4px);
+            border-color: var(--primary-color);
+        }
+
+        /* 按鈕美化 */
+        button {
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 輸入框美化 */
+        input, textarea, select {
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        input:focus, textarea:focus, select:focus {
+            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+            border-color: var(--primary-color);
+        }
+
+        /* 標籤頁美化 */
+        .tabs button {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .tabs button::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .tabs button.active::before {
+            width: 100%;
+        }
+
+        /* FAB 動畫增強 */
+        .fab {
+            animation: fabPulse 2s infinite;
+        }
+
+        @keyframes fabPulse {
+            0%, 100% {
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            }
+            50% {
+                box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
+            }
+        }
+
+        .fab:hover {
+            animation: none;
+        }
+
+        /* 載入動畫 */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 淡入動畫 */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 滑入動畫 */
+        .slide-in {
+            animation: slideIn 0.4s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        /* 響應式設計改進 */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .tabs {
+                flex-direction: column;
+                gap: 5px;
+            }
+
+            .tabs button {
+                width: 100%;
+            }
+
+            .search-box {
+                width: 95%;
+            }
+
+            .fab {
+                bottom: 60px;
+                right: 15px;
+            }
+
+            .work-item, .schedule-item, .note-item {
+                padding: 12px;
+            }
+        }
+
+        /* 小屏幕優化 */
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .header {
+                padding: 15px;
+            }
+
+            button {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+            }
+
+            .fab {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+            }
+
+            .fab-menu {
+                bottom: 65px;
+                right: 15px;
+            }
+        }
+
+        /* 捲軸美化 */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 5px;
+            transition: background 0.3s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* 深色模式捲軸 */
+        .dark-mode ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+
+        .dark-mode ::-webkit-scrollbar-thumb {
+            background: #555;
+        }
+
+        .dark-mode ::-webkit-scrollbar-thumb:hover {
+            background: #777;
+        }
+
+        /* 選取文字美化 */
+        ::selection {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        ::-moz-selection {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* 焦點可見性改進（無障礙） */
+        *:focus-visible {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* 卡片內容動畫 */
+        .work-item > *, .schedule-item > *, .note-item > * {
+            animation: slideIn 0.3s ease-out;
+        }
+
+        /* 刪除按鈕改進 */
+        .delete-btn, .remove-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .delete-btn::after, .remove-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .delete-btn:active::after, .remove-btn:active::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        /* 空狀態美化 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .empty-state::before {
+            content: '📋';
+            display: block;
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+
+        /* 載入狀態 */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* 成功/錯誤狀態 */
+        .success {
+            background: #4caf50;
+            color: white;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        .error {
+            background: #f44336;
+            color: white;
+            animation: shake 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% {
+                transform: translateX(0);
+            }
+            25% {
+                transform: translateX(-10px);
+            }
+            75% {
+                transform: translateX(10px);
+            }
+        }
+
     </style>
 
 </head>
