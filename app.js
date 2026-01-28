@@ -2522,3 +2522,188 @@ style.textContent = `
 `;
 document.head.appendChild(style);
 
+
+// ==================== 匯入功能 ====================
+/**
+ * 匯入 JSON 備份檔案
+ * @param {Event} event - 檔案選擇事件
+ */
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // 驗證檔案類型
+    if (!file.name.endsWith('.json')) {
+        showNotification('❌ 請選擇 JSON 格式的備份檔', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+
+            // 驗證資料格式
+            if (!validateImportData(data)) {
+                showNotification('❌ 檔案格式不正確', 'error');
+                return;
+            }
+
+            // 顯示確認對話框
+            const confirmMsg = `確定要匯入資料嗎？\n\n` +
+                `這將會：\n` +
+                `- 新增 ${data.projects?.length || 0} 個專案\n` +
+                `- 新增 ${data.tasks?.length || 0} 個任務\n` +
+                `- 新增 ${data.goals?.length || 0} 個目標\n` +
+                `- 合併 ${data.tags?.length || 0} 個標籤\n\n` +
+                `現有資料不會被刪除。`;
+
+            if (!confirm(confirmMsg)) {
+                showNotification('⚠️ 已取消匯入', 'warning');
+                return;
+            }
+
+            // 執行匯入
+            performImport(data);
+
+            // 顯示成功訊息
+            showNotification('✅ 匯入成功！', 'success');
+
+            // 重新渲染所有畫面
+            renderProjects();
+            renderTasks();
+            renderGoals();
+
+        } catch (error) {
+            console.error('Import error:', error);
+            showNotification('❌ 匯入失敗：檔案格式錯誤', 'error');
+        }
+    };
+
+    reader.onerror = function() {
+        showNotification('❌ 無法讀取檔案', 'error');
+    };
+
+    reader.readAsText(file);
+
+    // 重置檔案輸入，允許重複選擇同一檔案
+    event.target.value = '';
+}
+
+/**
+ * 驗證匯入資料格式
+ */
+function validateImportData(data) {
+    // 必須是物件
+    if (typeof data !== 'object' || data === null) {
+        return false;
+    }
+
+    // 至少要有一個資料陣列
+    const hasProjects = Array.isArray(data.projects);
+    const hasTasks = Array.isArray(data.tasks);
+    const hasGoals = Array.isArray(data.goals);
+    const hasTags = Array.isArray(data.tags);
+
+    return hasProjects || hasTasks || hasGoals || hasTags;
+}
+
+/**
+ * 執行匯入操作
+ */
+function performImport(data) {
+    // 匯入 Projects
+    if (Array.isArray(data.projects)) {
+        data.projects.forEach(project => {
+            // 生成新的 ID 避免衝突
+            const newProject = {
+                ...project,
+                id: generateId(),
+                createdAt: project.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            state.projects.push(newProject);
+        });
+    }
+
+    // 匯入 Tasks
+    if (Array.isArray(data.tasks)) {
+        data.tasks.forEach(task => {
+            const newTask = {
+                ...task,
+                id: generateId(),
+                createdAt: task.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            state.tasks.push(newTask);
+        });
+    }
+
+    // 匯入 Goals
+    if (Array.isArray(data.goals)) {
+        data.goals.forEach(goal => {
+            const newGoal = {
+                ...goal,
+                id: generateId(),
+                createdAt: goal.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            };
+            state.goals.push(newGoal);
+        });
+    }
+
+    // 匯入 Tags（合併，不重複）
+    if (Array.isArray(data.tags)) {
+        data.tags.forEach(tag => {
+            if (!state.tags.includes(tag)) {
+                state.tags.push(tag);
+            }
+        });
+    }
+
+    // 儲存到 localStorage
+    saveToLocalStorage();
+}
+
+/**
+ * 更新 showNotification 支援更多類型
+ */
+const originalShowNotification = showNotification;
+showNotification = function(message, type = 'info') {
+    const colors = {
+        'success': '#4caf50',
+        'error': '#f44336',
+        'warning': '#ff9800',
+        'info': '#2196f3'
+    };
+
+    const notification = document.createElement('div');
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background: ${colors[type] || colors.info};
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        z-index: 10000;
+        font-weight: 600;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+        word-wrap: break-word;
+    `;
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+};
+
