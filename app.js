@@ -97,68 +97,88 @@ function renderCalendar() {
             dayCell.classList.add('selected');
         }
         
+        // ✨ 檢查是否有事項標記
+        checkDateHasItems(cellDate).then(hasItems => {
+            if (hasItems) {
+                dayCell.classList.add('has-event');
+            }
+        });
+        
         dayCell.onclick = () => selectDate(cellDate);
         grid.appendChild(dayCell);
     }
 }
 
+// ✨ 新增：檢查日期是否有事項
+async function checkDateHasItems(date) {
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // 檢查工作紀錄
+    const worklogs = await getAllWorklogs();
+    const hasWorklog = worklogs.some(w => w.date === dateStr);
+    
+    // 檢查待辦任務
+    const todos = await getAllTodos();
+    const hasTodo = todos.some(t => t.dueDate === dateStr);
+    
+    // 檢查核對清單
+    const checklists = await getAllChecklists();
+    const hasChecklist = checklists.some(c => c.date === dateStr);
+    
+    return hasWorklog || hasTodo || hasChecklist;
+}
+
 function selectDate(date) {
     selectedDate = date;
     renderCalendar();
-    showDayDetails(date);
+    loadDateItems(date);
 }
 
-async function showDayDetails(date) {
-    const details = document.getElementById('day-details');
-    const dateStr = date.toLocaleDateString('zh-TW', { 
-        year: 'numeric', month: 'long', day: 'numeric' 
-    });
+async function loadDateItems(date) {
+    const dateStr = date.toISOString().split('T')[0];
+    const container = document.getElementById('date-items');
     
-    document.getElementById('selected-date').textContent = dateStr;
+    container.innerHTML = `<h3>${dateStr} 的事項</h3>`;
     
-    // 載入當日事項
-    const events = await getCalendarEvents(date);
-    const list = document.getElementById('day-events-list');
-    list.innerHTML = '';
+    // 工作紀錄
+    const worklogs = await getAllWorklogs();
+    const dayWorklogs = worklogs.filter(w => w.date === dateStr);
     
-    if (events.length === 0) {
-        list.innerHTML = '<li class="empty-message">無事項</li>';
-    } else {
-        events.forEach(event => {
-            const li = document.createElement('li');
-            li.innerHTML = `
-                <span>${event.text}</span>
-                <button onclick="deleteCalendarEvent(${event.id})">刪除</button>
-            `;
-            list.appendChild(li);
+    if (dayWorklogs.length > 0) {
+        container.innerHTML += '<h4>📝 工作紀錄</h4>';
+        dayWorklogs.forEach(w => {
+            container.innerHTML += `<div class="date-item">${w.title}</div>`;
         });
     }
     
-    details.classList.remove('hidden');
+    // 待辦任務
+    const todos = await getAllTodos();
+    const dayTodos = todos.filter(t => t.dueDate === dateStr);
+    
+    if (dayTodos.length > 0) {
+        container.innerHTML += '<h4>📋 待辦任務</h4>';
+        dayTodos.forEach(t => {
+            container.innerHTML += `<div class="date-item">${t.text}</div>`;
+        });
+    }
+    
+    // 核對清單
+    const checklists = await getAllChecklists();
+    const dayChecklists = checklists.filter(c => c.date === dateStr);
+    
+    if (dayChecklists.length > 0) {
+        container.innerHTML += '<h4>✅ 核對清單</h4>';
+        dayChecklists.forEach(c => {
+            container.innerHTML += `<div class="date-item">${c.title}</div>`;
+        });
+    }
+    
+    if (dayWorklogs.length === 0 && dayTodos.length === 0 && dayChecklists.length === 0) {
+        container.innerHTML += '<p class="empty-message">這天沒有事項</p>';
+    }
 }
 
-async function addCalendarEvent() {
-    const input = document.getElementById('new-event-input');
-    const text = input.value.trim();
-    
-    if (!text || !selectedDate) return;
-    
-    await saveCalendarEvent({
-        date: selectedDate.toISOString().split('T')[0],
-        text: text,
-        timestamp: Date.now()
-    });
-    
-    input.value = '';
-    showDayDetails(selectedDate);
-}
-
-async function deleteCalendarEvent(id) {
-    await deleteFromDB('calendar', id);
-    showDayDetails(selectedDate);
-}
-
-function previousMonth() {
+function prevMonth() {
     currentDate.setMonth(currentDate.getMonth() - 1);
     renderCalendar();
 }
@@ -172,7 +192,7 @@ function goToday() {
     currentDate = new Date();
     selectedDate = new Date();
     renderCalendar();
-    showDayDetails(selectedDate);
+    loadDateItems(selectedDate);
 }
 
 // ===== 工作紀錄功能 =====
@@ -220,6 +240,7 @@ async function saveWorklog() {
     await saveWorklogToDB(worklog);
     cancelWorklog();
     loadWorklogs();
+    renderCalendar(); // ✨ 重新渲染月曆以更新標記
 }
 
 async function loadWorklogs() {
@@ -231,29 +252,33 @@ async function loadWorklogs() {
         return;
     }
     
-    // 按日期排序（新到舊）
+    // 按日期排序
     worklogs.sort((a, b) => new Date(b.date) - new Date(a.date));
     
     container.innerHTML = '';
-    worklogs.forEach(log => {
+    worklogs.forEach(worklog => {
         const card = document.createElement('div');
         card.className = 'worklog-card';
+        
+        const tagsHtml = worklog.tags && worklog.tags.length > 0
+            ? worklog.tags.map(tag => `<span class="tag">${tag}</span>`).join('')
+            : '';
+        
         card.innerHTML = `
             <div class="worklog-header">
-                <h3>${log.title}</h3>
-                <span class="worklog-date">${log.date}</span>
-            </div>
-            <div class="worklog-content">${log.content || ''}</div>
-            ${log.tags && log.tags.length > 0 ? `
-                <div class="worklog-tags">
-                    ${log.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                <h3>${worklog.title}</h3>
+                <div class="worklog-actions">
+                    <button onclick="editWorklog(${worklog.id})" class="btn-icon">✏️</button>
+                    <button onclick="deleteWorklog(${worklog.id})" class="btn-icon">🗑️</button>
                 </div>
-            ` : ''}
-            <div class="worklog-actions">
-                <button onclick="editWorklog(${log.id})" class="btn-secondary">編輯</button>
-                <button onclick="deleteWorklog(${log.id})" class="btn-danger">刪除</button>
             </div>
+            <div class="worklog-meta">
+                <span>📅 ${worklog.date}</span>
+                ${tagsHtml}
+            </div>
+            <div class="worklog-content">${worklog.content || ''}</div>
         `;
+        
         container.appendChild(card);
     });
 }
@@ -262,30 +287,88 @@ async function editWorklog(id) {
     const worklog = await getWorklogById(id);
     if (!worklog) return;
     
+    editingWorklogId = id;
     document.getElementById('worklog-date').value = worklog.date;
     document.getElementById('worklog-title').value = worklog.title;
     document.getElementById('worklog-content').value = worklog.content || '';
     document.getElementById('worklog-tags').value = worklog.tags ? worklog.tags.join(', ') : '';
     
-    editingWorklogId = id;
     showAddWorklog();
 }
 
 async function deleteWorklog(id) {
-    if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+    if (!confirm('確定要刪除這筆工作紀錄嗎？')) return;
+    
     await deleteFromDB('worklogs', id);
     loadWorklogs();
+    renderCalendar(); // ✨ 重新渲染月曆
 }
 
-function filterWorklogs() {
-    const search = document.getElementById('worklog-search').value.toLowerCase();
-    const filter = document.getElementById('worklog-filter').value;
+function searchWorklogs() {
+    const keyword = document.getElementById('worklog-search').value.toLowerCase();
+    const cards = document.querySelectorAll('.worklog-card');
     
-    // TODO: 實作篩選邏輯
-    loadWorklogs();
+    cards.forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(keyword) ? 'block' : 'none';
+    });
 }
 
-// ===== 核對清單功能 =====
+async function filterWorklogsByDate(range) {
+    const worklogs = await getAllWorklogs();
+    const container = document.getElementById('worklogs-list');
+    
+    const now = new Date();
+    let filtered = worklogs;
+    
+    if (range === 'today') {
+        const today = now.toISOString().split('T')[0];
+        filtered = worklogs.filter(w => w.date === today);
+    } else if (range === 'week') {
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        filtered = worklogs.filter(w => new Date(w.date) >= weekAgo);
+    } else if (range === 'month') {
+        const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1);
+        filtered = worklogs.filter(w => new Date(w.date) >= monthAgo);
+    }
+    
+    // 顯示結果
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="empty-message">該時段無工作紀錄</p>';
+        return;
+    }
+    
+    filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    container.innerHTML = '';
+    filtered.forEach(worklog => {
+        const card = document.createElement('div');
+        card.className = 'worklog-card';
+        
+        const tagsHtml = worklog.tags && worklog.tags.length > 0
+            ? worklog.tags.map(tag => `<span class="tag">${tag}</span>`).join('')
+            : '';
+        
+        card.innerHTML = `
+            <div class="worklog-header">
+                <h3>${worklog.title}</h3>
+                <div class="worklog-actions">
+                    <button onclick="editWorklog(${worklog.id})" class="btn-icon">✏️</button>
+                    <button onclick="deleteWorklog(${worklog.id})" class="btn-icon">🗑️</button>
+                </div>
+            </div>
+            <div class="worklog-meta">
+                <span>📅 ${worklog.date}</span>
+                ${tagsHtml}
+            </div>
+            <div class="worklog-content">${worklog.content || ''}</div>
+        `;
+        
+        container.appendChild(card);
+    });
+}
+
+// ===== 核對清單功能 ===== (✨ 改進版：N天/週/月)
 function showAddChecklist() {
     document.getElementById('checklist-form').classList.remove('hidden');
 }
@@ -297,15 +380,29 @@ function cancelChecklist() {
 
 function clearChecklistForm() {
     document.getElementById('checklist-title').value = '';
-    document.getElementById('checklist-items-input').value = '';
+    document.getElementById('checklist-items').value = '';
+    document.getElementById('checklist-date').value = '';
     document.getElementById('checklist-repeat').value = 'none';
+    document.getElementById('checklist-repeat-count').value = '1';
     editingChecklistId = null;
+}
+
+function addChecklistItem() {
+    const input = document.getElementById('checklist-item-input');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    const textarea = document.getElementById('checklist-items');
+    textarea.value += (textarea.value ? '\n' : '') + text;
+    input.value = '';
 }
 
 async function saveChecklist() {
     const title = document.getElementById('checklist-title').value.trim();
-    const itemsText = document.getElementById('checklist-items-input').value.trim();
+    const itemsText = document.getElementById('checklist-items').value.trim();
+    const date = document.getElementById('checklist-date').value;
     const repeat = document.getElementById('checklist-repeat').value;
+    const repeatCount = parseInt(document.getElementById('checklist-repeat-count').value) || 1;
     
     if (!title || !itemsText) {
         alert('請填寫標題和項目');
@@ -320,7 +417,9 @@ async function saveChecklist() {
     const checklist = {
         title,
         items,
+        date: date || null,
         repeat,
+        repeatCount,
         timestamp: Date.now()
     };
     
@@ -331,6 +430,7 @@ async function saveChecklist() {
     await saveChecklistToDB(checklist);
     cancelChecklist();
     loadChecklists();
+    renderCalendar(); // ✨ 重新渲染月曆
 }
 
 async function loadChecklists() {
@@ -343,41 +443,70 @@ async function loadChecklists() {
     }
     
     container.innerHTML = '';
-    checklists.forEach(list => {
-        const card = document.createElement('div');
-        card.className = 'checklist-card';
+    
+    for (const checklist of checklists) {
+        // ✨ 根據重複次數生成多個區塊
+        const blockCount = checklist.repeatCount || 1;
         
-        const progress = list.items.filter(i => i.checked).length;
-        const total = list.items.length;
-        const percentage = total > 0 ? Math.round((progress / total) * 100) : 0;
-        
-        card.innerHTML = `
-            <div class="checklist-header">
-                <h3>${list.title}</h3>
-                <span class="checklist-progress">${progress}/${total} (${percentage}%)</span>
-            </div>
-            <div class="checklist-items">
-                ${list.items.map((item, idx) => `
-                    <label class="checklist-item">
-                        <input type="checkbox" ${item.checked ? 'checked' : ''} 
-                               onchange="toggleChecklistItem(${list.id}, ${idx})">
-                        <span class="${item.checked ? 'checked' : ''}">${item.text}</span>
-                    </label>
-                `).join('')}
-            </div>
-            <div class="checklist-actions">
-                ${list.repeat !== 'none' ? `<span class="repeat-badge">🔄 ${getRepeatText(list.repeat)}</span>` : ''}
-                <button onclick="resetChecklist(${list.id})" class="btn-secondary">重置</button>
-                <button onclick="deleteChecklist(${list.id})" class="btn-danger">刪除</button>
-            </div>
-        `;
-        container.appendChild(card);
-    });
+        for (let i = 0; i < blockCount; i++) {
+            const card = document.createElement('div');
+            card.className = 'checklist-card';
+            
+            const progress = checklist.items.filter(item => item.checked).length;
+            const total = checklist.items.length;
+            const progressPercent = total > 0 ? (progress / total * 100).toFixed(0) : 0;
+            
+            // 計算日期標籤
+            let dateLabel = '';
+            if (checklist.date) {
+                dateLabel = `📅 ${checklist.date}`;
+            }
+            if (checklist.repeat !== 'none' && blockCount > 1) {
+                dateLabel += ` [${i + 1}/${blockCount}]`;
+            }
+            
+            card.innerHTML = `
+                <div class="checklist-header">
+                    <h3>${checklist.title}</h3>
+                    <div class="checklist-actions">
+                        <button onclick="editChecklist(${checklist.id})" class="btn-icon">✏️</button>
+                        <button onclick="resetChecklist(${checklist.id})" class="btn-icon" title="重置">🔄</button>
+                        <button onclick="deleteChecklist(${checklist.id})" class="btn-icon">🗑️</button>
+                    </div>
+                </div>
+                ${dateLabel ? `<div class="checklist-meta">${dateLabel}</div>` : ''}
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+                <div class="progress-text">${progress} / ${total} 項目已完成</div>
+                <div class="checklist-items">
+                    ${checklist.items.map((item, idx) => `
+                        <label class="checklist-item">
+                            <input type="checkbox" ${item.checked ? 'checked' : ''} 
+                                onchange="toggleChecklistItem(${checklist.id}, ${idx})">
+                            <span class="${item.checked ? 'checked' : ''}">${item.text}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+            
+            container.appendChild(card);
+        }
+    }
 }
 
-function getRepeatText(repeat) {
-    const map = { daily: '每日', weekly: '每週', monthly: '每月', none: '不重複' };
-    return map[repeat] || repeat;
+async function editChecklist(id) {
+    const checklist = await getChecklistById(id);
+    if (!checklist) return;
+    
+    editingChecklistId = id;
+    document.getElementById('checklist-title').value = checklist.title;
+    document.getElementById('checklist-items').value = checklist.items.map(i => i.text).join('\n');
+    document.getElementById('checklist-date').value = checklist.date || '';
+    document.getElementById('checklist-repeat').value = checklist.repeat || 'none';
+    document.getElementById('checklist-repeat-count').value = checklist.repeatCount || 1;
+    
+    showAddChecklist();
 }
 
 async function toggleChecklistItem(listId, itemIdx) {
@@ -402,6 +531,7 @@ async function deleteChecklist(id) {
     if (!confirm('確定要刪除這個清單嗎？')) return;
     await deleteFromDB('checklists', id);
     loadChecklists();
+    renderCalendar(); // ✨ 重新渲染月曆
 }
 
 // ===== 待辦任務功能 =====
@@ -424,6 +554,7 @@ async function addTodo() {
     input.value = '';
     document.getElementById('todo-due-date').value = '';
     loadTodos();
+    renderCalendar(); // ✨ 重新渲染月曆
 }
 
 async function loadTodos() {
@@ -440,29 +571,23 @@ async function loadTodos() {
         filtered = todos.filter(t => t.priority === 'high');
     }
     
-    // 排序：未完成在前，高優先在前
-    filtered.sort((a, b) => {
-        if (a.completed !== b.completed) return a.completed ? 1 : -1;
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
-    
     if (filtered.length === 0) {
-        container.innerHTML = '<p class="empty-message">無待辦任務</p>';
+        container.innerHTML = '<p class="empty-message">沒有待辦事項</p>';
     } else {
         container.innerHTML = '';
         filtered.forEach(todo => {
             const item = document.createElement('div');
             item.className = `todo-item priority-${todo.priority} ${todo.completed ? 'completed' : ''}`;
             
-            const dueDateStr = todo.dueDate ? 
-                `<span class="due-date">📅 ${todo.dueDate}</span>` : '';
+            const dueDateStr = todo.dueDate 
+                ? `<span class="due-date">📅 ${todo.dueDate}</span>`
+                : '';
             
             item.innerHTML = `
                 <label>
                     <input type="checkbox" ${todo.completed ? 'checked' : ''} 
-                           onchange="toggleTodo(${todo.id})">
-                    <span class="todo-text">${todo.text}</span>
+                        onchange="toggleTodo(${todo.id})">
+                    <span>${todo.text}</span>
                 </label>
                 <div class="todo-meta">
                     <span class="priority-badge">${getPriorityText(todo.priority)}</span>
@@ -498,6 +623,7 @@ async function toggleTodo(id) {
 async function deleteTodo(id) {
     await deleteFromDB('todos', id);
     loadTodos();
+    renderCalendar(); // ✨ 重新渲染月曆
 }
 
 function filterTodos(filter) {
@@ -520,64 +646,147 @@ function setDefaultDate() {
     }
 }
 
-// ===== PDF 匯出 =====
-async function exportToPDF() {
+// ===== PDF 匯出功能 ===== (✨ 支援月曆+三區塊)
+async function exportPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text('工作管理系統報表', 20, 20);
+    let yPos = 20;
     
-    let y = 40;
+    // 標題
+    doc.setFontSize(18);
+    doc.text('工作報表', 105, yPos, { align: 'center' });
+    yPos += 15;
     
-    // 匯出工作紀錄
-    const worklogs = await getAllWorklogs();
-    if (worklogs.length > 0) {
+    // 匯出日期
+    doc.setFontSize(10);
+    doc.text(`匯出日期: ${new Date().toLocaleDateString('zh-TW')}`, 20, yPos);
+    yPos += 10;
+    
+    // 選項：月曆 or 三區塊 or 全部
+    const includeCalendar = confirm('是否包含月曆視圖？');
+    const includeBlocks = confirm('是否包含工作紀錄、核對清單、待辦任務？');
+    
+    // ✨ 月曆匯出
+    if (includeCalendar) {
         doc.setFontSize(14);
-        doc.text('工作紀錄', 20, y);
-        y += 10;
+        doc.text('📅 月曆', 20, yPos);
+        yPos += 10;
+        
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth() + 1;
         
         doc.setFontSize(10);
-        worklogs.slice(0, 10).forEach(log => {
-            if (y > 270) {
-                doc.addPage();
-                y = 20;
+        doc.text(`${year}年 ${month}月`, 20, yPos);
+        yPos += 8;
+        
+        // 簡化月曆表格
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const worklogs = await getAllWorklogs();
+        const todos = await getAllTodos();
+        
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const dayWorklogs = worklogs.filter(w => w.date === dateStr);
+            const dayTodos = todos.filter(t => t.dueDate === dateStr);
+            
+            if (dayWorklogs.length > 0 || dayTodos.length > 0) {
+                doc.text(`${day}日: ${dayWorklogs.length}紀錄, ${dayTodos.length}任務`, 25, yPos);
+                yPos += 6;
+                
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
             }
-            doc.text(`${log.date} - ${log.title}`, 25, y);
-            y += 7;
-        });
-        y += 10;
+        }
+        
+        yPos += 10;
     }
     
-    // 匯出待辦任務
-    const todos = await getAllTodos();
-    if (todos.length > 0 && y < 250) {
+    // ✨ 三區塊匯出
+    if (includeBlocks) {
+        // 工作紀錄
         doc.setFontSize(14);
-        doc.text('待辦任務', 20, y);
-        y += 10;
+        doc.text('📝 工作紀錄', 20, yPos);
+        yPos += 10;
         
-        doc.setFontSize(10);
+        const worklogs = await getAllWorklogs();
+        worklogs.slice(0, 10).forEach(w => {
+            doc.setFontSize(10);
+            doc.text(`${w.date} - ${w.title}`, 25, yPos);
+            yPos += 6;
+            
+            if (w.content) {
+                doc.setFontSize(9);
+                const lines = doc.splitTextToSize(w.content, 170);
+                lines.slice(0, 3).forEach(line => {
+                    doc.text(line, 30, yPos);
+                    yPos += 5;
+                });
+            }
+            
+            yPos += 5;
+            
+            if (yPos > 270) {
+                doc.addPage();
+                yPos = 20;
+            }
+        });
+        
+        // 待辦任務
+        yPos += 10;
+        doc.setFontSize(14);
+        doc.text('📋 待辦任務', 20, yPos);
+        yPos += 10;
+        
+        const todos = await getAllTodos();
         const activeTodos = todos.filter(t => !t.completed);
-        activeTodos.slice(0, 15).forEach(todo => {
-            if (y > 270) {
+        
+        activeTodos.slice(0, 20).forEach(todo => {
+            const status = todo.completed ? '✓' : '○';
+            const priority = getPriorityText(todo.priority);
+            const dueDate = todo.dueDate ? ` (${todo.dueDate})` : '';
+            
+            doc.setFontSize(10);
+            doc.text(`${status} [${priority}] ${todo.text}${dueDate}`, 25, yPos);
+            yPos += 7;
+            
+            if (yPos > 270) {
                 doc.addPage();
-                y = 20;
+                yPos = 20;
             }
-            doc.text(`[${todo.priority}] ${todo.text}`, 25, y);
-            y += 7;
+        });
+        
+        // 核對清單
+        yPos += 10;
+        doc.setFontSize(14);
+        doc.text('✅ 核對清單', 20, yPos);
+        yPos += 10;
+        
+        const checklists = await getAllChecklists();
+        checklists.slice(0, 5).forEach(list => {
+            doc.setFontSize(11);
+            doc.text(list.title, 25, yPos);
+            yPos += 7;
+            
+            list.items.forEach(item => {
+                const status = item.checked ? '✓' : '○';
+                doc.setFontSize(9);
+                doc.text(`  ${status} ${item.text}`, 30, yPos);
+                yPos += 6;
+                
+                if (yPos > 270) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+            });
+            
+            yPos += 5;
         });
     }
     
+    // 儲存 PDF
     const filename = `工作報表_${new Date().toISOString().split('T')[0]}.pdf`;
     doc.save(filename);
-    
-    alert('PDF 已匯出！');
-}
-
-// ===== Service Worker 註冊 =====
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js')
-        .then(reg => console.log('Service Worker 已註冊'))
-        .catch(err => console.error('Service Worker 註冊失敗:', err));
 }
