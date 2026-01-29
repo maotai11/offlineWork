@@ -1,231 +1,102 @@
-# Offline Work Manager Pro
+# 離線工作管理系統
 
-完全离线的工作管理应用，无需网络连接，数据存储在本地浏览器。
+完整的離線工作管理應用，支援 `file://` 直接開啟使用。
 
-## 功能特性
+## 功能特色
 
-### 核心模块
-1. **工作纪录** - 记录日常工作内容
-   - 支持文字描述
-   - 图片上传（自动压缩为Base64）
-   - 自定义标签
-   - 日期选择（月历组件）
+### 📅 月曆視圖
+- 月曆日期選擇
+- 單日事項管理
+- 快速導航（上/下月、今天）
 
-2. **代办事项** - 任务管理
-   - 优先级设置（高/中/低）
-   - 预计完成日期
-   - 固定模板快速创建
-   - 拖放排序
+### 📝 工作紀錄
+- 詳細工作日誌
+- 標籤分類
+- 搜尋與篩選（今天/本週/本月）
+- 編輯與刪除
 
-3. **每期核对事项** - 周期性任务
-   - 用户/部门区分
-   - 灵活周期设定（每N日/周/月）
-   - 自动提醒到期事项
+### ✅ 核對清單
+- 多項目核對清單
+- 週期重複設定（每日/每週/每月）
+- 進度追蹤
+- 一鍵重置
 
-### 高级功能
-- **月历视图** - 首页整合月历显示所有事项，可点击交互
-- **关键字搜索** - 快速查找任何记录
-- **PDF导出** - 支持单一区域或全部导出，包含月历视图
-- **拖放排序** - 直观调整任务顺序
-- **完全离线** - 无需网络，所有资源本地化
+### 📋 待辦任務
+- 優先順序（高/中/低）
+- 到期日期
+- 完成狀態追蹤
+- 多重篩選
 
-## 技术架构
+### 💾 離線存儲
+- IndexedDB 本地資料庫
+- 完全離線可用
+- PWA 支援
+- 資料持久化
 
-### 核心技术栈
-- **纯前端** - HTML5 + Vanilla JavaScript
-- **Service Worker** - 实现离线访问
-- **IndexedDB** - 本地数据存储（通过 Dexie.js）
-- **Pico CSS** - 轻量级样式框架
+### 📄 PDF 匯出
+- 一鍵匯出工作報表
+- 包含工作紀錄和待辦任務
 
-### 使用的库（全部本地化）
-- `dexie.js` - IndexedDB 封装
-- `flatpickr` - 日期选择器
-- `sortable.js` - 拖放功能
-- `html2canvas` + `jspdf` - PDF 生成
-- `browser-image-compression` - 图片压缩
+## 使用方式
 
-## 安全特性
+### 方法一：直接開啟
+1. 下載所有檔案到同一資料夾
+2. 雙擊 `index.html` 或用瀏覽器開啟
+3. 開始使用（`file://` 協議）
 
-✅ 无外部 CDN 依赖  
-✅ 所有 CSS/JS 本地化  
-✅ 防 XSS 攻击（使用 textContent/innerText）  
-✅ 数据完全本地存储  
-✅ 无网络请求  
-
-## 安装与使用
-
-### 方式一：直接打开
-1. 下载整个项目文件夹
-2. 用浏览器打开 `index.html`
-3. 首次访问会自动安装 Service Worker
-4. 刷新页面后即可完全离线使用
-
-### 方式二：本地服务器（推荐）
+### 方法二：本地伺服器（推薦）
 ```bash
-# 使用 Python 3
+# Python 3
 python -m http.server 8000
 
-# 或使用 Node.js
+# Node.js
 npx serve
-```
-然后访问 `http://localhost:8000`
 
-## 项目结构
-
-```
-offline-work-manager-pro/
-├── index.html              # 主页面
-├── styles.css              # 样式文件
-├── app.js                  # 主应用逻辑
-├── db.js                   # 数据库配置与 CRUD
-├── service-worker.js       # Service Worker
-├── README.md               # 本文档
-├── libs/                   # 第三方库（本地）
-│   ├── dexie.min.js
-│   ├── flatpickr.min.js
-│   ├── flatpickr.min.css
-│   ├── sortable.min.js
-│   ├── html2canvas.min.js
-│   ├── jspdf.umd.min.js
-│   └── browser-image-compression.js
-└── icons/                  # 本地图标
-    └── sprite.svg
+# 然後開啟 http://localhost:8000
 ```
 
-## 数据库结构
+## 檔案結構
 
-### workRecords（工作纪录）
-- id
-- date
-- content
-- images (Base64数组)
-- tags
-- createdAt
-
-### todos（代办事项）
-- id
-- title
-- priority (high/medium/low)
-- dueDate
-- completed
-- order
-- createdAt
-
-### checkItems（核对事项）
-- id
-- title
-- user
-- periodType (daily/weekly/monthly)
-- periodValue (数字)
-- lastChecked
-- nextDue
-- createdAt
-
-### templates（固定模板）
-- id
-- type (todo/check)
-- content
-- createdAt
-
-## 使用说明
-
-### 工作纪录
-1. 点击「新增工作纪录」
-2. 选择日期（点击日期框弹出月历）
-3. 输入工作内容
-4. 可选：上传图片（自动压缩）
-5. 添加标签（用逗号分隔）
-6. 保存
-
-### 代办事项
-1. 点击「新增代办」
-2. 输入任务标题
-3. 设置优先级和截止日期
-4. 保存后可拖放调整顺序
-5. 完成后勾选标记完成
-
-### 每期核对事项
-1. 点击「新增核对事项」
-2. 输入事项名称和负责人
-3. 设置周期（例如：每3天、每2周、每1月）
-4. 系统自动计算下次到期日
-5. 到期时会在月历上高亮显示
-
-### 月历视图
-- 首页显示当月月历
-- 不同颜色标记不同类型事项
-- 点击日期查看该日所有事项
-- 左右箭头切换月份
-
-### PDF 导出
-- 点击「导出 PDF」按钮
-- 选择导出范围：
-  - 全部导出
-  - 仅工作纪录
-  - 仅代办事项
-  - 仅核对事项
-  - 当前月历视图
-- 生成 PDF 文件下载
-
-## 浏览器兼容性
-
-- ✅ Chrome 90+
-- ✅ Firefox 88+
-- ✅ Edge 90+
-- ✅ Safari 14+
-
-需要支持：
-- Service Worker
-- IndexedDB
-- ES6+
-
-## 常见问题
-
-**Q: 数据存储在哪里？**  
-A: 数据存储在浏览器的 IndexedDB 中，完全本地，不会上传到任何服务器。
-
-**Q: 换电脑后数据会丢失吗？**  
-A: 是的，数据只存在当前浏览器。建议定期导出 PDF 备份，或使用浏览器的导出/导入功能（开发中）。
-
-**Q: 清除浏览器缓存会丢失数据吗？**  
-A: 清除「网站数据」或「IndexedDB」会丢失数据，但清除「缓存文件」不会影响数据。
-
-**Q: 可以在手机上用吗？**  
-A: 可以，但体验为桌面优化。移动端可能需要横屏使用。
-
-**Q: 如何卸载？**  
-A: 浏览器设置 → 网站设置 → 找到本应用 → 清除数据并注销 Service Worker。
-
-## 开发指南
-
-### 添加新功能
-1. 在 `db.js` 中定义新数据表
-2. 在 `app.js` 中添加 UI 和逻辑
-3. 更新 `service-worker.js` 的缓存版本
-
-### 调试
-```javascript
-// 查看数据库内容
-await db.workRecords.toArray()
-await db.todos.toArray()
-
-// 清空数据库
-await db.delete()
-await db.open()
+```
+offlinework/
+├── index.html          # 主頁面
+├── app.js             # 核心邏輯
+├── db.js              # 資料庫操作
+├── styles.css         # UI 樣式
+├── service-worker.js  # PWA 支援
+├── manifest.json      # PWA 設定
+└── README.md          # 說明文件
 ```
 
-### 更新 Service Worker
-修改 `service-worker.js` 中的 `CACHE_VERSION`，用户刷新页面后自动更新。
+## 技術特點
 
-## 许可证
+- **純前端**：無需後端伺服器
+- **響應式設計**：支援手機、平板、電腦
+- **離線優先**：IndexedDB + Service Worker
+- **現代化 UI**：流暢動畫、友善介面
+- **資料安全**：資料存在本地瀏覽器
 
-MIT License - 自由使用、修改、分发
+## 瀏覽器支援
 
-## 贡献
+- Chrome 80+
+- Firefox 75+
+- Safari 13+
+- Edge 80+
 
-欢迎提交 Issue 和 Pull Request！
+## 資料管理
 
----
+所有資料儲存在瀏覽器的 IndexedDB 中：
+- 清除瀏覽器資料會刪除所有內容
+- 建議定期使用 PDF 匯出功能備份
+- 不同瀏覽器的資料互不共通
 
-**最后更新**: 2026-01-27  
-**版本**: 1.0.0
+## 授權
+
+MIT License
+
+## 更新日誌
+
+### v1.0.0 (2026-01-29)
+- 初版發布
+- 四大核心功能完整
+- 支援 file:// 離線使用
