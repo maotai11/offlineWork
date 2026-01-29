@@ -1,782 +1,583 @@
-// ==================== Phase 4: 完整 JavaScript ====================
-// 功能: 搜尋/篩選、批量操作、釘選、分類、多用戶、XSS防護、UX強化
-
-(function() {
-    'use strict';
-
-    // ==================== XSS 防護工具 ====================
-    const Security = {
-        // HTML escape 防止 XSS
-        escapeHTML(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        },
-
-        // 清理 URL（防止 javascript: 協議）
-        sanitizeURL(url) {
-            if (!url) return '';
-            const lower = url.toLowerCase().trim();
-            if (lower.startsWith('javascript:') || 
-                lower.startsWith('data:') || 
-                lower.startsWith('vbscript:')) {
-                return '';
-            }
-            return url;
-        },
-
-        // 驗證日期格式
-        validateDate(dateStr) {
-            if (!dateStr) return null;
-            const date = new Date(dateStr);
-            return isNaN(date.getTime()) ? null : dateStr;
-        },
-
-        // 驗證數字範圍
-        validateNumber(num, min = 0, max = 100) {
-            const n = parseInt(num, 10);
-            if (isNaN(n)) return min;
-            return Math.max(min, Math.min(max, n));
-        },
-
-        // 清理標籤輸入
-        sanitizeTags(tagsStr) {
-            if (!tagsStr) return [];
-            return tagsStr
-                .split(',')
-                .map(tag => this.escapeHTML(tag.trim()))
-                .filter(tag => tag.length > 0 && tag.length < 50)
-                .slice(0, 10); // 最多 10 個標籤
-        }
-    };
-
-    // ==================== 應用程式主體 ====================
-    const App = {
-        // 當前用戶
-        currentUser: 'default',
-        
-        // 所有用戶資料
-        allUserData: {},
-        
-        // 當前任務列表
-        todos: [],
-        
-        // 選中的任務
-        selectedTodos: new Set(),
-        
-        // 初始化
-        init() {
-            this.loadAllUsers();
-            this.loadUserData();
-            this.updateUserSelect();
-            this.loadDarkMode();
-            this.setupKeyboardShortcuts();
-            this.render();
-            this.updateDashboard();
-        },
-
-        // ==================== 用戶管理 ====================
-        loadAllUsers() {
-            try {
-                const data = localStorage.getItem('offlineWork_users');
-                this.allUserData = data ? JSON.parse(data) : { default: [] };
-            } catch (e) {
-                this.allUserData = { default: [] };
-            }
-        },
-
-        saveAllUsers() {
-            try {
-                localStorage.setItem('offlineWork_users', JSON.stringify(this.allUserData));
-            } catch (e) {
-                this.showNotification('儲存失敗', 'error');
-            }
-        },
-
-        loadUserData() {
-            this.todos = this.allUserData[this.currentUser] || [];
-        },
-
-        saveUserData() {
-            this.allUserData[this.currentUser] = this.todos;
-            this.saveAllUsers();
-        },
-
-        switchUser(username) {
-            this.saveUserData();
-            this.currentUser = username;
-            this.loadUserData();
-            this.selectedTodos.clear();
-            this.render();
-            this.updateDashboard();
-            this.updateFilterOptions();
-            this.showNotification(`切換到用戶: ${username}`, 'success');
-        },
-
-        addNewUser() {
-            const username = prompt('輸入新用戶名稱:');
-            if (!username) return;
-            
-            const sanitized = Security.escapeHTML(username.trim());
-            if (sanitized.length === 0 || sanitized.length > 30) {
-                this.showNotification('用戶名稱長度需在 1-30 字元', 'error');
-                return;
-            }
-
-            if (this.allUserData[sanitized]) {
-                this.showNotification('用戶已存在', 'error');
-                return;
-            }
-
-            this.allUserData[sanitized] = [];
-            this.saveAllUsers();
-            this.updateUserSelect();
-            this.switchUser(sanitized);
-        },
-
-        updateUserSelect() {
-            const select = document.getElementById('userSelect');
-            if (!select) return;
-
-            select.innerHTML = '';
-            Object.keys(this.allUserData).sort().forEach(user => {
-                const option = document.createElement('option');
-                option.value = user;
-                option.textContent = user;
-                if (user === this.currentUser) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            });
-        },
-
-        // ==================== 新增任務 ====================
-        addTodo() {
-            const title = document.getElementById('todoTitle').value.trim();
-            if (!title) {
-                this.showNotification('請輸入任務標題', 'error');
-                return;
-            }
-
-            const todo = {
-                id: Date.now() + Math.random(),
-                title: Security.escapeHTML(title),
-                description: Security.escapeHTML(document.getElementById('todoDescription').value.trim()),
-                category: Security.escapeHTML(document.getElementById('todoCategory').value.trim()) || '未分類',
-                status: document.getElementById('todoStatus').value,
-                priority: document.getElementById('todoPriority').value,
-                dueDate: Security.validateDate(document.getElementById('todoDueDate').value),
-                progress: Security.validateNumber(document.getElementById('todoProgress').value, 0, 100),
-                tags: Security.sanitizeTags(document.getElementById('todoTags').value),
-                pinned: false,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            };
-
-            this.todos.unshift(todo);
-            this.saveUserData();
-            this.clearForm();
-            this.render();
-            this.updateDashboard();
-            this.updateFilterOptions();
-            this.showNotification('任務已新增', 'success');
-        },
-
-        clearForm() {
-            document.getElementById('todoTitle').value = '';
-            document.getElementById('todoDescription').value = '';
-            document.getElementById('todoCategory').value = '';
-            document.getElementById('todoStatus').value = 'todo';
-            document.getElementById('todoPriority').value = 'medium';
-            document.getElementById('todoDueDate').value = '';
-            document.getElementById('todoProgress').value = '';
-            document.getElementById('todoTags').value = '';
-        },
-
-        // ==================== 釘選功能 ====================
-        togglePin(id) {
-            const todo = this.todos.find(t => t.id === id);
-            if (todo) {
-                todo.pinned = !todo.pinned;
-                todo.updatedAt = new Date().toISOString();
-                this.saveUserData();
-                this.render();
-            }
-        },
-
-        // ==================== 刪除任務 ====================
-        deleteTodo(id) {
-            this.confirmAction('確定要刪除這個任務？', () => {
-                this.todos = this.todos.filter(t => t.id !== id);
-                this.selectedTodos.delete(id);
-                this.saveUserData();
-                this.render();
-                this.updateDashboard();
-                this.showNotification('任務已刪除', 'success');
-            });
-        },
-
-        // ==================== 更新任務 ====================
-        updateTodoStatus(id, status) {
-            const todo = this.todos.find(t => t.id === id);
-            if (todo) {
-                todo.status = status;
-                if (status === 'completed') {
-                    todo.progress = 100;
-                }
-                todo.updatedAt = new Date().toISOString();
-                this.saveUserData();
-                this.render();
-                this.updateDashboard();
-            }
-        },
-
-        // ==================== 批量操作 ====================
-        toggleSelectAll() {
-            const filtered = this.getFilteredTodos();
-            if (this.selectedTodos.size === filtered.length) {
-                this.selectedTodos.clear();
-            } else {
-                filtered.forEach(todo => this.selectedTodos.add(todo.id));
-            }
-            this.render();
-        },
-
-        bulkComplete() {
-            if (this.selectedTodos.size === 0) {
-                this.showNotification('請先選擇任務', 'error');
-                return;
-            }
-
-            this.todos.forEach(todo => {
-                if (this.selectedTodos.has(todo.id)) {
-                    todo.status = 'completed';
-                    todo.progress = 100;
-                    todo.updatedAt = new Date().toISOString();
-                }
-            });
-
-            this.selectedTodos.clear();
-            this.saveUserData();
-            this.render();
-            this.updateDashboard();
-            this.showNotification('批量完成成功', 'success');
-        },
-
-        bulkDelete() {
-            if (this.selectedTodos.size === 0) {
-                this.showNotification('請先選擇任務', 'error');
-                return;
-            }
-
-            this.confirmAction(`確定要刪除 ${this.selectedTodos.size} 個任務？`, () => {
-                this.todos = this.todos.filter(t => !this.selectedTodos.has(t.id));
-                this.selectedTodos.clear();
-                this.saveUserData();
-                this.render();
-                this.updateDashboard();
-                this.showNotification('批量刪除成功', 'success');
-            });
-        },
-
-        // ==================== 搜尋/篩選 ====================
-        filterTodos() {
-            this.render();
-        },
-
-        getFilteredTodos() {
-            let filtered = [...this.todos];
-
-            // 搜尋關鍵字
-            const searchTerm = document.getElementById('searchInput')?.value.toLowerCase().trim();
-            if (searchTerm) {
-                filtered = filtered.filter(todo => 
-                    todo.title.toLowerCase().includes(searchTerm) ||
-                    todo.description.toLowerCase().includes(searchTerm) ||
-                    todo.category.toLowerCase().includes(searchTerm) ||
-                    todo.tags.some(tag => tag.toLowerCase().includes(searchTerm))
-                );
-            }
-
-            // 狀態篩選
-            const statusFilter = document.getElementById('filterStatus')?.value;
-            if (statusFilter && statusFilter !== 'all') {
-                filtered = filtered.filter(todo => todo.status === statusFilter);
-            }
-
-            // 優先度篩選
-            const priorityFilter = document.getElementById('filterPriority')?.value;
-            if (priorityFilter && priorityFilter !== 'all') {
-                filtered = filtered.filter(todo => todo.priority === priorityFilter);
-            }
-
-            // 分類篩選
-            const categoryFilter = document.getElementById('filterCategory')?.value;
-            if (categoryFilter && categoryFilter !== 'all') {
-                filtered = filtered.filter(todo => todo.category === categoryFilter);
-            }
-
-            // 排序: 釘選優先，然後依建立時間
-            filtered.sort((a, b) => {
-                if (a.pinned !== b.pinned) return b.pinned ? 1 : -1;
-                return new Date(b.createdAt) - new Date(a.createdAt);
-            });
-
-            return filtered;
-        },
-
-        clearFilters() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('filterStatus').value = 'all';
-            document.getElementById('filterPriority').value = 'all';
-            document.getElementById('filterCategory').value = 'all';
-            this.render();
-        },
-
-        updateFilterOptions() {
-            const categorySelect = document.getElementById('filterCategory');
-            if (!categorySelect) return;
-
-            const categories = new Set();
-            this.todos.forEach(todo => categories.add(todo.category));
-
-            const currentValue = categorySelect.value;
-            categorySelect.innerHTML = '<option value="all">所有分類</option>';
-            
-            Array.from(categories).sort().forEach(cat => {
-                const option = document.createElement('option');
-                option.value = cat;
-                option.textContent = cat;
-                categorySelect.appendChild(option);
-            });
-
-            if (categories.has(currentValue)) {
-                categorySelect.value = currentValue;
-            }
-        },
-
-        // ==================== 渲染介面 ====================
-        render() {
-            const list = document.getElementById('todoList');
-            if (!list) return;
-
-            const filtered = this.getFilteredTodos();
-
-            if (filtered.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:40px; color:var(--text-secondary);">目前沒有任務</div>';
-                this.updateSelectedCount();
-                return;
-            }
-
-            list.innerHTML = filtered.map(todo => this.renderTodoItem(todo)).join('');
-            this.updateSelectedCount();
-        },
-
-        renderTodoItem(todo) {
-            const isSelected = this.selectedTodos.has(todo.id);
-            const pinnedClass = todo.pinned ? 'pinned' : '';
-            const completedClass = todo.status === 'completed' ? 'completed' : '';
-            
-            const priorityClass = `priority-${todo.priority}`;
-            const statusClass = `status-${todo.status}`;
-
-            const statusText = {
-                'todo': '待辦',
-                'in-progress': '進行中',
-                'completed': '已完成'
-            }[todo.status] || todo.status;
-
-            const priorityText = {
-                'high': '高',
-                'medium': '中',
-                'low': '低'
-            }[todo.priority] || todo.priority;
-
-            const dueDateHTML = todo.dueDate ? 
-                `<div class="meta-item">📅 ${todo.dueDate}</div>` : '';
-
-            const tagsHTML = todo.tags.length > 0 ?
-                todo.tags.map(tag => `<span class="category-tag">${tag}</span>`).join('') : '';
-
-            return `
-                <div class="todo-item ${pinnedClass} ${completedClass}">
-                    <div class="todo-header">
-                        <input 
-                            type="checkbox" 
-                            class="todo-checkbox" 
-                            ${isSelected ? 'checked' : ''}
-                            onchange="app.toggleSelect(${todo.id})"
-                        />
-                        <div class="todo-title">${todo.title}</div>
-                        <button 
-                            class="pin-btn ${todo.pinned ? 'active' : ''}" 
-                            onclick="app.togglePin(${todo.id})"
-                            title="${todo.pinned ? '取消釘選' : '釘選'}"
-                        >
-                            ${todo.pinned ? '📌' : '📍'}
-                        </button>
-                    </div>
-                    
-                    <div class="todo-meta">
-                        <div class="meta-item">
-                            <span class="category-tag">${todo.category}</span>
-                        </div>
-                        <div class="meta-item ${statusClass}">狀態: ${statusText}</div>
-                        <div class="meta-item ${priorityClass}">優先度: ${priorityText}</div>
-                        <div class="meta-item">進度: ${todo.progress}%</div>
-                        ${dueDateHTML}
-                    </div>
-
-                    ${todo.description ? `<div style="margin: 10px 0; color: var(--text-secondary);">${todo.description}</div>` : ''}
-                    
-                    ${tagsHTML ? `<div style="margin: 10px 0;">${tagsHTML}</div>` : ''}
-
-                    <div style="display: flex; gap: 8px; margin-top: 12px;">
-                        <button onclick="app.updateTodoStatus(${todo.id}, 'todo')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--text-secondary); color: white; cursor: pointer;">待辦</button>
-                        <button onclick="app.updateTodoStatus(${todo.id}, 'in-progress')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--accent); color: white; cursor: pointer;">進行中</button>
-                        <button onclick="app.updateTodoStatus(${todo.id}, 'completed')" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--success); color: white; cursor: pointer;">完成</button>
-                        <button onclick="app.deleteTodo(${todo.id})" style="padding: 6px 12px; border: none; border-radius: 4px; background: var(--danger); color: white; cursor: pointer; margin-left: auto;">刪除</button>
-                    </div>
-                </div>
-            `;
-        },
-
-        toggleSelect(id) {
-            if (this.selectedTodos.has(id)) {
-                this.selectedTodos.delete(id);
-            } else {
-                this.selectedTodos.add(id);
-            }
-            this.updateSelectedCount();
-        },
-
-        updateSelectedCount() {
-            const countElem = document.getElementById('selectedCount');
-            const selectAllText = document.getElementById('selectAllText');
-            
-            if (countElem) {
-                if (this.selectedTodos.size > 0) {
-                    countElem.textContent = `已選擇 ${this.selectedTodos.size} 個`;
-                } else {
-                    countElem.textContent = '';
-                }
-            }
-
-            if (selectAllText) {
-                const filtered = this.getFilteredTodos();
-                selectAllText.textContent = this.selectedTodos.size === filtered.length ? '取消全選' : '全選';
-            }
-        },
-
-        // ==================== 統計儀表板 ====================
-        updateDashboard() {
-            const total = this.todos.length;
-            const completed = this.todos.filter(t => t.status === 'completed').length;
-            const inProgress = this.todos.filter(t => t.status === 'in-progress').length;
-            const rate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('completedCount').textContent = completed;
-            document.getElementById('inProgressCount').textContent = inProgress;
-            document.getElementById('completionRate').textContent = rate + '%';
-        },
-
-        // ==================== 匯出功能 ====================
-        exportData(format) {
-            if (this.todos.length === 0) {
-                this.showNotification('沒有資料可匯出', 'error');
-                return;
-            }
-
-            let content, filename, type;
-
-            switch (format) {
-                case 'json':
-                    content = JSON.stringify(this.todos, null, 2);
-                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.json`;
-                    type = 'application/json';
-                    break;
-
-                case 'csv':
-                    content = this.toCSV(this.todos);
-                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.csv`;
-                    type = 'text/csv';
-                    break;
-
-                case 'excel':
-                    this.exportExcel(this.todos, `todos_${this.currentUser}_${this.getTimestamp()}.xlsx`);
-                    return;
-
-                case 'markdown':
-                    content = this.toMarkdown(this.todos);
-                    filename = `todos_${this.currentUser}_${this.getTimestamp()}.md`;
-                    type = 'text/markdown';
-                    break;
-            }
-
-            this.downloadFile(content, filename, type);
-            this.showNotification('匯出成功', 'success');
-        },
-
-        exportAllUsers() {
-            const allData = {};
-            Object.keys(this.allUserData).forEach(user => {
-                allData[user] = {
-                    todos: this.allUserData[user],
-                    stats: {
-                        total: this.allUserData[user].length,
-                        completed: this.allUserData[user].filter(t => t.status === 'completed').length
-                    }
-                };
-            });
-
-            const content = JSON.stringify(allData, null, 2);
-            const filename = `all_users_${this.getTimestamp()}.json`;
-            this.downloadFile(content, filename, 'application/json');
-            this.showNotification('總覽匯出成功', 'success');
-        },
-
-        toCSV(todos) {
-            const headers = ['標題', '描述', '分類', '狀態', '優先度', '進度', '截止日期', '標籤', '建立時間'];
-            const rows = todos.map(todo => [
-                todo.title,
-                todo.description,
-                todo.category,
-                todo.status,
-                todo.priority,
-                todo.progress,
-                todo.dueDate || '',
-                todo.tags.join(';'),
-                todo.createdAt
-            ]);
-
-            return [headers, ...rows].map(row => 
-                row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-            ).join('\n');
-        },
-
-        toMarkdown(todos) {
-            let md = `# 任務清單 - ${this.currentUser}\n\n`;
-            md += `匯出時間: ${new Date().toLocaleString('zh-TW')}\n\n`;
-            
-            const groups = {};
-            todos.forEach(todo => {
-                if (!groups[todo.category]) groups[todo.category] = [];
-                groups[todo.category].push(todo);
-            });
-
-            Object.keys(groups).sort().forEach(category => {
-                md += `## ${category}\n\n`;
-                groups[category].forEach(todo => {
-                    const checkbox = todo.status === 'completed' ? '[x]' : '[ ]';
-                    md += `- ${checkbox} **${todo.title}**\n`;
-                    if (todo.description) md += `  - ${todo.description}\n`;
-                    md += `  - 優先度: ${todo.priority} | 進度: ${todo.progress}%\n`;
-                    if (todo.dueDate) md += `  - 截止: ${todo.dueDate}\n`;
-                    md += `\n`;
-                });
-                md += `\n`;
-            });
-
-            return md;
-        },
-
-        exportExcel(todos, filename) {
-            // 使用 SheetJS (已在 HTML 中引入)
-            if (typeof XLSX === 'undefined') {
-                this.showNotification('Excel 功能未載入', 'error');
-                return;
-            }
-
-            const data = todos.map(todo => ({
-                '標題': todo.title,
-                '描述': todo.description,
-                '分類': todo.category,
-                '狀態': todo.status,
-                '優先度': todo.priority,
-                '進度': todo.progress,
-                '截止日期': todo.dueDate || '',
-                '標籤': todo.tags.join(', '),
-                '建立時間': new Date(todo.createdAt).toLocaleString('zh-TW')
-            }));
-
-            const ws = XLSX.utils.json_to_sheet(data);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Tasks');
-            XLSX.writeFile(wb, filename);
-        },
-
-        // ==================== 匯入功能 ====================
-        importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (!Array.isArray(imported)) {
-                        this.showNotification('格式錯誤', 'error');
-                        return;
-                    }
-
-                    // 清理並驗證每個任務
-                    const cleaned = imported.map(todo => ({
-                        id: Date.now() + Math.random(),
-                        title: Security.escapeHTML(todo.title || '未命名'),
-                        description: Security.escapeHTML(todo.description || ''),
-                        category: Security.escapeHTML(todo.category || '未分類'),
-                        status: ['todo', 'in-progress', 'completed'].includes(todo.status) ? todo.status : 'todo',
-                        priority: ['high', 'medium', 'low'].includes(todo.priority) ? todo.priority : 'medium',
-                        dueDate: Security.validateDate(todo.dueDate),
-                        progress: Security.validateNumber(todo.progress, 0, 100),
-                        tags: Security.sanitizeTags(todo.tags ? todo.tags.join(',') : ''),
-                        pinned: false,
-                        createdAt: todo.createdAt || new Date().toISOString(),
-                        updatedAt: new Date().toISOString()
-                    }));
-
-                    this.todos = [...cleaned, ...this.todos];
-                    this.saveUserData();
-                    this.render();
-                    this.updateDashboard();
-                    this.updateFilterOptions();
-                    this.showNotification(`成功匯入 ${cleaned.length} 個任務`, 'success');
-                } catch (err) {
-                    this.showNotification('匯入失敗', 'error');
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        },
-
-        // ==================== 深色模式 ====================
-        toggleDarkMode() {
-            document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            document.getElementById('themeIcon').textContent = isDark ? '☀️' : '🌙';
-            localStorage.setItem('darkMode', isDark);
-        },
-
-        loadDarkMode() {
-            const isDark = localStorage.getItem('darkMode') === 'true';
-            if (isDark) {
-                document.body.classList.add('dark-mode');
-                document.getElementById('themeIcon').textContent = '☀️';
-            }
-        },
-
-        // ==================== 鍵盤快捷鍵 ====================
-        setupKeyboardShortcuts() {
-            document.addEventListener('keydown', (e) => {
-                // Ctrl+F: 聚焦搜尋
-                if (e.ctrlKey && e.key === 'f') {
-                    e.preventDefault();
-                    document.getElementById('searchInput').focus();
-                }
-
-                // Ctrl+N: 聚焦新增
-                if (e.ctrlKey && e.key === 'n') {
-                    e.preventDefault();
-                    document.getElementById('todoTitle').focus();
-                }
-
-                // ESC: 清除選擇
-                if (e.key === 'Escape') {
-                    this.selectedTodos.clear();
-                    this.render();
-                }
-            });
-        },
-
-        // ==================== 工具函數 ====================
-        getTimestamp() {
-            return new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-        },
-
-        downloadFile(content, filename, type) {
-            const blob = new Blob([content], { type });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-        },
-
-        showNotification(message, type = 'info') {
-            // 簡單通知（不用 console.log）
-            const colors = {
-                success: '#27ae60',
-                error: '#e74c3c',
-                info: '#4a90e2'
-            };
-
-            const notif = document.createElement('div');
-            notif.textContent = message;
-            notif.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 15px 25px;
-                background: ${colors[type]};
-                color: white;
-                border-radius: 8px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-                z-index: 10000;
-                animation: slideIn 0.3s ease;
-            `;
-
-            document.body.appendChild(notif);
-            setTimeout(() => {
-                notif.style.animation = 'fadeOut 0.3s ease';
-                setTimeout(() => notif.remove(), 300);
-            }, 3000);
-        },
-
-        confirmAction(message, callback) {
-            const overlay = document.createElement('div');
-            overlay.className = 'confirm-overlay';
-            overlay.onclick = () => {
-                overlay.remove();
-                dialog.remove();
-            };
-
-            const dialog = document.createElement('div');
-            dialog.className = 'confirm-dialog';
-            dialog.innerHTML = `
-                <div style="font-size: 18px; margin-bottom: 10px;">${message}</div>
-                <div class="confirm-buttons">
-                    <button class="btn-confirm-yes">確定</button>
-                    <button class="btn-confirm-no">取消</button>
-                </div>
-            `;
-
-            dialog.querySelector('.btn-confirm-yes').onclick = () => {
-                callback();
-                overlay.remove();
-                dialog.remove();
-            };
-
-            dialog.querySelector('.btn-confirm-no').onclick = () => {
-                overlay.remove();
-                dialog.remove();
-            };
-
-            document.body.appendChild(overlay);
-            document.body.appendChild(dialog);
-        }
-    };
-
-    // ==================== 全域暴露 ====================
-    window.app = App;
-
-    // ==================== 啟動應用 ====================
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => App.init());
-    } else {
-        App.init();
+// ===== 全域變數 =====
+let currentView = 'calendar';
+let currentDate = new Date();
+let selectedDate = null;
+let editingWorklogId = null;
+let editingChecklistId = null;
+let currentFilter = 'all';
+
+// ===== 初始化 =====
+document.addEventListener('DOMContentLoaded', async () => {
+    await initDB();
+    setupNavigation();
+    renderCalendar();
+    loadWorklogs();
+    loadChecklists();
+    loadTodos();
+    setDefaultDate();
+});
+
+// ===== 導航切換 =====
+function setupNavigation() {
+    const navBtns = document.querySelectorAll('.nav-btn');
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const view = btn.dataset.view;
+            switchView(view);
+        });
+    });
+}
+
+function switchView(view) {
+    // 更新按鈕狀態
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+    });
+    
+    // 切換視圖
+    document.querySelectorAll('.view-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    document.getElementById(`${view}-view`).classList.add('active');
+    
+    currentView = view;
+}
+
+// ===== 月曆功能 =====
+function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // 更新月份標題
+    document.getElementById('current-month').textContent = 
+        `${year}年 ${month + 1}月`;
+    
+    // 計算月曆數據
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startDay = firstDay.getDay();
+    
+    // 生成月曆格子
+    const grid = document.getElementById('calendar-grid');
+    grid.innerHTML = '';
+    
+    // 星期標題
+    const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
+    weekDays.forEach(day => {
+        const header = document.createElement('div');
+        header.className = 'calendar-header';
+        header.textContent = day;
+        grid.appendChild(header);
+    });
+    
+    // 空白格子
+    for (let i = 0; i < startDay; i++) {
+        const empty = document.createElement('div');
+        empty.className = 'calendar-day empty';
+        grid.appendChild(empty);
     }
+    
+    // 日期格子
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dayCell = document.createElement('div');
+        dayCell.className = 'calendar-day';
+        dayCell.textContent = day;
+        
+        const cellDate = new Date(year, month, day);
+        
+        // 今天標記
+        if (cellDate.toDateString() === today.toDateString()) {
+            dayCell.classList.add('today');
+        }
+        
+        // 選中標記
+        if (selectedDate && cellDate.toDateString() === selectedDate.toDateString()) {
+            dayCell.classList.add('selected');
+        }
+        
+        dayCell.onclick = () => selectDate(cellDate);
+        grid.appendChild(dayCell);
+    }
+}
 
-})();
+function selectDate(date) {
+    selectedDate = date;
+    renderCalendar();
+    showDayDetails(date);
+}
+
+async function showDayDetails(date) {
+    const details = document.getElementById('day-details');
+    const dateStr = date.toLocaleDateString('zh-TW', { 
+        year: 'numeric', month: 'long', day: 'numeric' 
+    });
+    
+    document.getElementById('selected-date').textContent = dateStr;
+    
+    // 載入當日事項
+    const events = await getCalendarEvents(date);
+    const list = document.getElementById('day-events-list');
+    list.innerHTML = '';
+    
+    if (events.length === 0) {
+        list.innerHTML = '<li class="empty-message">無事項</li>';
+    } else {
+        events.forEach(event => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${event.text}</span>
+                <button onclick="deleteCalendarEvent(${event.id})">刪除</button>
+            `;
+            list.appendChild(li);
+        });
+    }
+    
+    details.classList.remove('hidden');
+}
+
+async function addCalendarEvent() {
+    const input = document.getElementById('new-event-input');
+    const text = input.value.trim();
+    
+    if (!text || !selectedDate) return;
+    
+    await saveCalendarEvent({
+        date: selectedDate.toISOString().split('T')[0],
+        text: text,
+        timestamp: Date.now()
+    });
+    
+    input.value = '';
+    showDayDetails(selectedDate);
+}
+
+async function deleteCalendarEvent(id) {
+    await deleteFromDB('calendar', id);
+    showDayDetails(selectedDate);
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+}
+
+function goToday() {
+    currentDate = new Date();
+    selectedDate = new Date();
+    renderCalendar();
+    showDayDetails(selectedDate);
+}
+
+// ===== 工作紀錄功能 =====
+function showAddWorklog() {
+    document.getElementById('worklog-form').classList.remove('hidden');
+    setDefaultDate();
+}
+
+function cancelWorklog() {
+    document.getElementById('worklog-form').classList.add('hidden');
+    clearWorklogForm();
+}
+
+function clearWorklogForm() {
+    document.getElementById('worklog-date').value = '';
+    document.getElementById('worklog-title').value = '';
+    document.getElementById('worklog-content').value = '';
+    document.getElementById('worklog-tags').value = '';
+    editingWorklogId = null;
+}
+
+async function saveWorklog() {
+    const date = document.getElementById('worklog-date').value;
+    const title = document.getElementById('worklog-title').value.trim();
+    const content = document.getElementById('worklog-content').value.trim();
+    const tags = document.getElementById('worklog-tags').value.trim();
+    
+    if (!date || !title) {
+        alert('請填寫日期和標題');
+        return;
+    }
+    
+    const worklog = {
+        date,
+        title,
+        content,
+        tags: tags.split(',').map(t => t.trim()).filter(t => t),
+        timestamp: Date.now()
+    };
+    
+    if (editingWorklogId) {
+        worklog.id = editingWorklogId;
+    }
+    
+    await saveWorklogToDB(worklog);
+    cancelWorklog();
+    loadWorklogs();
+}
+
+async function loadWorklogs() {
+    const worklogs = await getAllWorklogs();
+    const container = document.getElementById('worklogs-list');
+    
+    if (worklogs.length === 0) {
+        container.innerHTML = '<p class="empty-message">尚無工作紀錄</p>';
+        return;
+    }
+    
+    // 按日期排序（新到舊）
+    worklogs.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    container.innerHTML = '';
+    worklogs.forEach(log => {
+        const card = document.createElement('div');
+        card.className = 'worklog-card';
+        card.innerHTML = `
+            <div class="worklog-header">
+                <h3>${log.title}</h3>
+                <span class="worklog-date">${log.date}</span>
+            </div>
+            <div class="worklog-content">${log.content || ''}</div>
+            ${log.tags && log.tags.length > 0 ? `
+                <div class="worklog-tags">
+                    ${log.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+                </div>
+            ` : ''}
+            <div class="worklog-actions">
+                <button onclick="editWorklog(${log.id})" class="btn-secondary">編輯</button>
+                <button onclick="deleteWorklog(${log.id})" class="btn-danger">刪除</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+async function editWorklog(id) {
+    const worklog = await getWorklogById(id);
+    if (!worklog) return;
+    
+    document.getElementById('worklog-date').value = worklog.date;
+    document.getElementById('worklog-title').value = worklog.title;
+    document.getElementById('worklog-content').value = worklog.content || '';
+    document.getElementById('worklog-tags').value = worklog.tags ? worklog.tags.join(', ') : '';
+    
+    editingWorklogId = id;
+    showAddWorklog();
+}
+
+async function deleteWorklog(id) {
+    if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+    await deleteFromDB('worklogs', id);
+    loadWorklogs();
+}
+
+function filterWorklogs() {
+    const search = document.getElementById('worklog-search').value.toLowerCase();
+    const filter = document.getElementById('worklog-filter').value;
+    
+    // TODO: 實作篩選邏輯
+    loadWorklogs();
+}
+
+// ===== 核對清單功能 =====
+function showAddChecklist() {
+    document.getElementById('checklist-form').classList.remove('hidden');
+}
+
+function cancelChecklist() {
+    document.getElementById('checklist-form').classList.add('hidden');
+    clearChecklistForm();
+}
+
+function clearChecklistForm() {
+    document.getElementById('checklist-title').value = '';
+    document.getElementById('checklist-items-input').value = '';
+    document.getElementById('checklist-repeat').value = 'none';
+    editingChecklistId = null;
+}
+
+async function saveChecklist() {
+    const title = document.getElementById('checklist-title').value.trim();
+    const itemsText = document.getElementById('checklist-items-input').value.trim();
+    const repeat = document.getElementById('checklist-repeat').value;
+    
+    if (!title || !itemsText) {
+        alert('請填寫標題和項目');
+        return;
+    }
+    
+    const items = itemsText.split('\n')
+        .map(line => line.trim())
+        .filter(line => line)
+        .map(text => ({ text, checked: false }));
+    
+    const checklist = {
+        title,
+        items,
+        repeat,
+        timestamp: Date.now()
+    };
+    
+    if (editingChecklistId) {
+        checklist.id = editingChecklistId;
+    }
+    
+    await saveChecklistToDB(checklist);
+    cancelChecklist();
+    loadChecklists();
+}
+
+async function loadChecklists() {
+    const checklists = await getAllChecklists();
+    const container = document.getElementById('checklists-container');
+    
+    if (checklists.length === 0) {
+        container.innerHTML = '<p class="empty-message">尚無核對清單</p>';
+        return;
+    }
+    
+    container.innerHTML = '';
+    checklists.forEach(list => {
+        const card = document.createElement('div');
+        card.className = 'checklist-card';
+        
+        const progress = list.items.filter(i => i.checked).length;
+        const total = list.items.length;
+        const percentage = total > 0 ? Math.round((progress / total) * 100) : 0;
+        
+        card.innerHTML = `
+            <div class="checklist-header">
+                <h3>${list.title}</h3>
+                <span class="checklist-progress">${progress}/${total} (${percentage}%)</span>
+            </div>
+            <div class="checklist-items">
+                ${list.items.map((item, idx) => `
+                    <label class="checklist-item">
+                        <input type="checkbox" ${item.checked ? 'checked' : ''} 
+                               onchange="toggleChecklistItem(${list.id}, ${idx})">
+                        <span class="${item.checked ? 'checked' : ''}">${item.text}</span>
+                    </label>
+                `).join('')}
+            </div>
+            <div class="checklist-actions">
+                ${list.repeat !== 'none' ? `<span class="repeat-badge">🔄 ${getRepeatText(list.repeat)}</span>` : ''}
+                <button onclick="resetChecklist(${list.id})" class="btn-secondary">重置</button>
+                <button onclick="deleteChecklist(${list.id})" class="btn-danger">刪除</button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function getRepeatText(repeat) {
+    const map = { daily: '每日', weekly: '每週', monthly: '每月', none: '不重複' };
+    return map[repeat] || repeat;
+}
+
+async function toggleChecklistItem(listId, itemIdx) {
+    const checklist = await getChecklistById(listId);
+    if (!checklist) return;
+    
+    checklist.items[itemIdx].checked = !checklist.items[itemIdx].checked;
+    await saveChecklistToDB(checklist);
+    loadChecklists();
+}
+
+async function resetChecklist(id) {
+    const checklist = await getChecklistById(id);
+    if (!checklist) return;
+    
+    checklist.items.forEach(item => item.checked = false);
+    await saveChecklistToDB(checklist);
+    loadChecklists();
+}
+
+async function deleteChecklist(id) {
+    if (!confirm('確定要刪除這個清單嗎？')) return;
+    await deleteFromDB('checklists', id);
+    loadChecklists();
+}
+
+// ===== 待辦任務功能 =====
+async function addTodo() {
+    const input = document.getElementById('new-todo-input');
+    const text = input.value.trim();
+    const priority = document.getElementById('todo-priority').value;
+    const dueDate = document.getElementById('todo-due-date').value;
+    
+    if (!text) return;
+    
+    await saveTodo({
+        text,
+        priority,
+        dueDate,
+        completed: false,
+        timestamp: Date.now()
+    });
+    
+    input.value = '';
+    document.getElementById('todo-due-date').value = '';
+    loadTodos();
+}
+
+async function loadTodos() {
+    const todos = await getAllTodos();
+    const container = document.getElementById('todos-list');
+    
+    // 篩選
+    let filtered = todos;
+    if (currentFilter === 'active') {
+        filtered = todos.filter(t => !t.completed);
+    } else if (currentFilter === 'completed') {
+        filtered = todos.filter(t => t.completed);
+    } else if (currentFilter === 'high') {
+        filtered = todos.filter(t => t.priority === 'high');
+    }
+    
+    // 排序：未完成在前，高優先在前
+    filtered.sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1;
+        const priorityOrder = { high: 0, medium: 1, low: 2 };
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+    });
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<p class="empty-message">無待辦任務</p>';
+    } else {
+        container.innerHTML = '';
+        filtered.forEach(todo => {
+            const item = document.createElement('div');
+            item.className = `todo-item priority-${todo.priority} ${todo.completed ? 'completed' : ''}`;
+            
+            const dueDateStr = todo.dueDate ? 
+                `<span class="due-date">📅 ${todo.dueDate}</span>` : '';
+            
+            item.innerHTML = `
+                <label>
+                    <input type="checkbox" ${todo.completed ? 'checked' : ''} 
+                           onchange="toggleTodo(${todo.id})">
+                    <span class="todo-text">${todo.text}</span>
+                </label>
+                <div class="todo-meta">
+                    <span class="priority-badge">${getPriorityText(todo.priority)}</span>
+                    ${dueDateStr}
+                    <button onclick="deleteTodo(${todo.id})" class="btn-icon">🗑️</button>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
+    
+    // 更新統計
+    const activeCount = todos.filter(t => !t.completed).length;
+    const completedCount = todos.filter(t => t.completed).length;
+    document.getElementById('active-count').textContent = activeCount;
+    document.getElementById('completed-count').textContent = completedCount;
+}
+
+function getPriorityText(priority) {
+    const map = { high: '高', medium: '中', low: '低' };
+    return map[priority] || priority;
+}
+
+async function toggleTodo(id) {
+    const todo = await getTodoById(id);
+    if (!todo) return;
+    
+    todo.completed = !todo.completed;
+    await saveTodo(todo);
+    loadTodos();
+}
+
+async function deleteTodo(id) {
+    await deleteFromDB('todos', id);
+    loadTodos();
+}
+
+function filterTodos(filter) {
+    currentFilter = filter;
+    
+    // 更新按鈕狀態
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    
+    loadTodos();
+}
+
+// ===== 工具函數 =====
+function setDefaultDate() {
+    const today = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('worklog-date');
+    if (dateInput && !dateInput.value) {
+        dateInput.value = today;
+    }
+}
+
+// ===== PDF 匯出 =====
+async function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('工作管理系統報表', 20, 20);
+    
+    let y = 40;
+    
+    // 匯出工作紀錄
+    const worklogs = await getAllWorklogs();
+    if (worklogs.length > 0) {
+        doc.setFontSize(14);
+        doc.text('工作紀錄', 20, y);
+        y += 10;
+        
+        doc.setFontSize(10);
+        worklogs.slice(0, 10).forEach(log => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            doc.text(`${log.date} - ${log.title}`, 25, y);
+            y += 7;
+        });
+        y += 10;
+    }
+    
+    // 匯出待辦任務
+    const todos = await getAllTodos();
+    if (todos.length > 0 && y < 250) {
+        doc.setFontSize(14);
+        doc.text('待辦任務', 20, y);
+        y += 10;
+        
+        doc.setFontSize(10);
+        const activeTodos = todos.filter(t => !t.completed);
+        activeTodos.slice(0, 15).forEach(todo => {
+            if (y > 270) {
+                doc.addPage();
+                y = 20;
+            }
+            doc.text(`[${todo.priority}] ${todo.text}`, 25, y);
+            y += 7;
+        });
+    }
+    
+    const filename = `工作報表_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(filename);
+    
+    alert('PDF 已匯出！');
+}
+
+// ===== Service Worker 註冊 =====
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('Service Worker 已註冊'))
+        .catch(err => console.error('Service Worker 註冊失敗:', err));
+}
